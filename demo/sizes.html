@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Size review — the mark at shipping sizes</title></head><body style="margin:0;background:#fff;font:9px sans-serif">
+<p style="margin:8px;font:11px/1.5 sans-serif;opacity:.7">The sizes the plugin actually draws, at 1:1. Screenshot this with a device scale factor to
+  inspect the rasterisation without changing the layout.</p>
+<div id="grid" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px"></div>
+<script>window.__ModuleLoader__={load({factory}){window.api=factory(()=>({createElement:()=>null,useEffect:()=>{},useRef:()=>({current:null})}))}}</script>
+<script src="/lib/client.js"></script>
+<script>
+const base={bodyY:0,bodyRotation:0,bodyScaleX:1,bodyScaleY:1,eyeX:0,eyeY:0,eyeOpen:1,tailRotation:0,finRotation:0}
+const poses=[['neutral',{}],['tail+4',{tailRotation:4}],['fin+5',{finRotation:5}],['max',{tailRotation:4,finRotation:5,bodyRotation:4,bodyY:0.6,bodyScaleX:1.04,bodyScaleY:0.96}],['blink',{eyeOpen:0.05}]]
+for(const size of [18,22,24,42,56]){
+  for(const [label,pose] of poses){
+    const cell=document.createElement('div'); cell.style.cssText='width:64px;text-align:center;color:#111'
+    const r=window.api.createWhaleRenderer({size,document}); r.apply({...base,...pose})
+    cell.appendChild(r.svg)
+    const cap=document.createElement('div'); cap.textContent=size+' '+label; cell.appendChild(cap)
+    document.getElementById('grid').appendChild(cell)
+  }
+}
+</script></body></html>

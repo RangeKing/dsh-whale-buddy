@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+/**
+ * Render one whale as a filmstrip: the same engine sampled at intervals, drawn
+ * at its real size and magnified, so motion that is only a few pixels can be
+ * reviewed by eye rather than trusted from a number.
+ *
+ * Usage: node scripts/motion-strip.mjs [chrome-binary]
+ */
+import { spawn } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const out = resolve(root, 'artifacts', 'shots')
+mkdirSync(out, { recursive: true })
+const chrome = process.argv[2] ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+
+const page = `<!doctype html><html><head><meta charset="utf-8"><title>Motion strip</title>
+<style>
+ body{margin:0;background:#fff;font:10px ui-monospace,monospace;color:#111}
+ .row{display:flex;align-items:flex-end;gap:2px;padding:8px 10px}
+ .cell{position:relative;width:46px;height:46px;outline:1px dotted rgba(0,0,0,.10)}
+ /* A fixed reference frame in every cell, so a two-pixel move is visible as a
+    move rather than having to be remembered between cells. */
+ .cell::before{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px dashed rgba(200,60,60,.45)}
+ .cell::after{content:'';position:absolute;top:0;bottom:0;left:50%;border-left:1px dashed rgba(200,60,60,.25)}
+ .cell>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+ h3{margin:10px 0 0 10px;font:600 11px sans-serif}
+</style></head><body>
+<div id="out"></div>
+<script>window.__ModuleLoader__={load({factory}){window.api=factory(()=>({createElement:()=>null,useEffect:()=>{},useRef:()=>({current:null})}))}}</script>
+<script src="../lib/client.js"></script>
+<script>
+const api = window.api
+for (const [label, size, state] of [['inline 26px · thinking',26,'thinking'],
+                                    ['dock 24px · thinking',24,'thinking'],
+                                    ['dock 24px · idle',24,'idle'],
+                                    ['inline 26px · compacting',26,'compacting']]) {
+  const h3 = document.createElement('h3'); h3.textContent = label
+  const row = document.createElement('div'); row.className = 'row'
+  document.getElementById('out').append(h3, row)
+  const engine = new api.WhaleEngine({ size, state, motion: 'full', random: api.seededRandom(5) })
+  const frames = []
+  // Compaction runs on a 1.6 s loop, so a 2.4 s sampling stride would land on
+  // roughly the same phase every time and show a row of identical whales. It
+  // gets a stride that walks around its own cycle instead.
+  const stride = state === 'compacting' ? 11 : 144
+  for (let i = 0; i < 24 * 60; i++) { engine.step(1/60); if (i % stride === 0 && frames.length < 10) frames.push({...engine.currentPose}) }
+  for (const pose of frames) {
+    const cell = document.createElement('div'); cell.className = 'cell'
+    const holder = document.createElement('span')
+    const r = api.createWhaleRenderer({ size, document })
+    r.apply(pose)
+    holder.appendChild(r.svg)
+    cell.appendChild(holder)
+    row.appendChild(cell)
+  }
+}
+</script></body></html>`
+
+writeFileSync(resolve(root, 'demo', '_strip.html'), page)
+await new Promise((done, fail) => {
+  const child = spawn(chrome, [
+    '--headless', '--disable-gpu', '--hide-scrollbars',
+    // The window is in device pixels, so it must be scaled up too, or the CSS
+    // viewport shrinks and the strip wraps onto itself.
+    '--force-device-scale-factor=4', '--virtual-time-budget=4000',
+    '--window-size=2000,800', '--default-background-color=ffffffff',
+    `--screenshot=${out}/motion-strip.png`,
+    `file://${root}/demo/_strip.html`,
+  ], { stdio: 'ignore' })
+  child.on('exit', (code) => (code === 0 ? done(undefined) : fail(new Error(`exit ${code}`))))
+  child.on('error', fail)
+})
+process.stdout.write(`shot: ${out}/motion-strip.png\n`)

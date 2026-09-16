@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rig review — pose extremes</title></head><body style="margin:0;background:#fff;font:11px sans-serif">
+<p style="margin:8px;font:11px/1.5 sans-serif;opacity:.7">Every rigged channel at its clamped limit, drawn large. What to look for: no seam where a
+  clip-split limb meets the body, and no part of the mark leaving its own box.</p>
+<div id="grid" style="display:flex;flex-wrap:wrap"></div>
+<script>window.__ModuleLoader__={load({factory}){window.api=factory(()=>({createElement:()=>null,useEffect:()=>{},useRef:()=>({current:null})}))}}</script>
+<script src="/lib/client.js"></script>
+<script>
+const poses = [
+  ['neutral', {}],
+  ['tail +4', {tailRotation: 4}],
+  ['tail -4', {tailRotation: -4}],
+  ['fin +5', {finRotation: 5}],
+  ['fin -5', {finRotation: -5}],
+  ['both max', {tailRotation: 4, finRotation: 5}],
+  ['both min', {tailRotation: -4, finRotation: -5}],
+  ['extreme body', {bodyScaleX: 1.04, bodyScaleY: 0.96, bodyRotation: 4, bodyY: 0.6}],
+  ['blink', {eyeOpen: 0.05}],
+  ['gaze', {eyeX: 0.55, eyeY: 0.55}],
+]
+const base = {bodyY:0,bodyRotation:0,bodyScaleX:1,bodyScaleY:1,eyeX:0,eyeY:0,eyeOpen:1,tailRotation:0,finRotation:0}
+for (const [label, pose] of poses) {
+  const cell = document.createElement('div')
+  cell.style.cssText = 'width:260px;text-align:center;color:#111'
+  const r = window.api.createWhaleRenderer({ size: 240, document })
+  r.apply({ ...base, ...pose })
+  cell.appendChild(r.svg)
+  const cap = document.createElement('div'); cap.textContent = label; cell.appendChild(cap)
+  document.getElementById('grid').appendChild(cell)
+}
+</script></body></html>

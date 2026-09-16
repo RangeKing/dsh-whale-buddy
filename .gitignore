@@ -1,0 +1,16 @@
+node_modules/
+lib/
+*.log
+.DS_Store
+AGENTS.md
+CLAUDE.md
+
+# Generated artefacts: screenshots, filmstrips and the recorded showcase.
+# `npm run shots` / `strip` / `film` rebuild all of it, so none of it belongs in
+# history — except the one GIF both READMEs embed, which has to be in the repo
+# for the image to resolve on GitHub. Git will not descend into an ignored
+# directory, so the exception needs the directory re-opened a level at a time.
+artifacts/*
+!artifacts/shots/
+artifacts/shots/*
+!artifacts/shots/showcase.gif

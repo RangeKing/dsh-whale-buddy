@@ -1,0 +1,95 @@
+{
+  "name": "dsh-whale-buddy",
+  "version": "0.1.0",
+  "description": "A quietly alive DeepSeek whale for DeepSeek Harness Web: an inline thinking whale and a right-edge Whale Dock.",
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "docs/geometry-derivation.md",
+    "cordis.patch.yml",
+    "README.md",
+    "README_CN.md",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "build:host": "tsc -p tsconfig.build.json",
+    "build:client": "tsdown --config tsdown.client.config.mjs",
+    "build": "npm run build:host && npm run build:client",
+    "verify": "node --test \"test/*.test.mjs\"",
+    "demo": "node demo/server.mjs",
+    "shots": "node scripts/visual-shots.mjs",
+    "prepublishOnly": "npm run typecheck && npm run build && npm run verify",
+    "strip": "node scripts/motion-strip.mjs",
+    "film": "node demo/server.mjs & SRV=$!; sleep 1; node scripts/record-showcase.mjs; kill $SRV"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "whale",
+    "dock",
+    "animation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RangeKing/dsh-whale-buddy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RangeKing/dsh-whale-buddy/issues"
+  },
+  "homepage": "https://github.com/RangeKing/dsh-whale-buddy#readme",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-chat": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-layout": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-trajectory": "^0.1.5-rc.2",
+    "@types/node": "^22.20.0",
+    "@types/react": "18.3.27",
+    "jsdom": "^25.0.1",
+    "react": "18.3.1",
+    "tsdown": "^0.22.14",
+    "typescript": "^5.9.2"
+  }
+}

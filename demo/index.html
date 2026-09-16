@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-whale-buddy — visual review</title>
+<style>
+  :root { color-scheme: light; }
+  body[data-theme="dark"] { color-scheme: dark; }
+  body {
+    margin: 0;
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    background: #f2f4f7;
+    color: #1f2733;
+  }
+  body[data-theme="dark"] { background: #14181f; color: #e8ecf1; }
+  header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.86); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(127,140,155,0.28);
+  }
+  body[data-theme="dark"] header { background: rgba(20,24,31,0.86); }
+  header label { display: inline-flex; gap: 6px; align-items: center; }
+  main { display: grid; gap: 16px; padding: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  section {
+    background: #fff; border: 1px solid rgba(127,140,155,0.24); border-radius: 12px;
+    padding: 14px; min-height: 150px;
+  }
+  body[data-theme="dark"] section { background: #1b2028; border-color: rgba(180,190,205,0.2); }
+  h2 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .65; }
+  .rule { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .rule code { font-size: 11px; opacity: .6; }
+  .seat { padding: 0 0 0 52px; }
+  .transcript { font-size: 12px; opacity: .75; padding: 0 16px 2px; }
+  .transcript p { margin: 4px 0; }
+  /*
+   * DSH's own running-turn row, copied out of the running app: a flex row whose
+   * label is a blue gradient clipped to the glyphs, which leaves both colour
+   * channels transparent. The whale has to read that gradient to match it, so
+   * the demo has to reproduce it or it reviews a case that never happens.
+   */
+  .statusline {
+    display: flex; align-items: center;
+    font-size: 14px; line-height: 22px; min-height: 26px; margin: 6px 0 0;
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,
+      #4176e6 0%, #4176e6 40%, #d3e2ff 50%, #4176e6 60%, #4176e6 100%);
+  }
+  .card {
+    position: relative; border-radius: 22px; padding: 18px 14px 26px;
+    border: 1px solid rgba(127,140,155,.28); background: rgba(127,140,155,.07);
+  }
+  .tobottom {
+    position: absolute; right: 16px; top: -34px; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    border-radius: 50%; border: 1px solid rgba(127,140,155,.28);
+    background: var(--dsw-alias-bg-base, #fff); opacity: .8;
+  }
+  body[data-theme="dark"] .card { background: rgba(180,190,205,.08); }
+  .anchor { position: absolute; inset: 0 0 auto; height: 0; }
+  .placeholder { font-size: 13px; opacity: .45; }
+  /* Stands in for the DSH shell overlay layer: absolute, inset 0, click-through. */
+  .frame {
+    position: relative; height: 340px; overflow: hidden;
+    border-radius: 10px; border: 1px dashed rgba(127,140,155,0.45);
+    background: repeating-linear-gradient(45deg, transparent 0 10px, rgba(127,140,155,.06) 10px 20px);
+  }
+  .overlay { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .overlay > * { pointer-events: auto; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .swatch { display: flex; align-items: center; justify-content: center; height: 78px; border-radius: 8px; }
+  .swatch.light { background: #fff; color: #1f2733; }
+  .swatch.dark { background: #14181f; color: #e8ecf1; }
+  #log { font: 11px/1.5 ui-monospace, SFMono-Regular, monospace; opacity: .7; white-space: pre-wrap; }
+</style>
+</head>
+<body data-theme="light">
+<header>
+  <strong>dsh-whale-buddy</strong>
+  <label>state
+    <select id="state">
+      <option value="idle" selected>idle</option>
+      <option value="thinking">thinking</option>
+      <option value="responding">responding</option>
+      <option value="working">working</option>
+      <option value="working:reading">working · reading</option>
+      <option value="working:editing">working · editing</option>
+      <option value="working:running">working · running</option>
+      <option value="working:searching">working · searching</option>
+      <option value="working:delegating">working · delegating</option>
+      <option value="compacting">compacting</option>
+      <option value="waiting">waiting</option>
+      <option value="error">error</option>
+    </select>
+  </label>
+  <label>locale
+    <select id="locale"><option value="zh">zh</option><option value="en">en</option></select>
+  </label>
+  <label><input type="checkbox" id="dark"> dark</label>
+  <label><input type="checkbox" id="reduced"> reduced motion</label>
+  <label>motion
+    <select id="motion">
+      <option value="full">full</option>
+      <option value="subtle">subtle</option>
+      <option value="static">static</option>
+    </select>
+  </label>
+  <button type="button" id="leap">breach</button>
+  <button type="button" id="toggle-dock">toggle dock</button>
+  <button type="button" id="stress">open/close ×6</button>
+  <span id="log"></span>
+  <span id="travel" style="font:11px ui-monospace,monospace;opacity:.6"></span>
+  <span style="margin-left:auto;font-size:11px;opacity:.7">
+    also: <a href="dock.html">dock</a> · <a href="rig.html">rig</a> · <a href="sizes.html">sizes</a>
+  </span>
+</header>
+
+<main>
+  <section>
+    <h2>Status whale — inside DSH's own running-turn row</h2>
+    <!-- Stand-in for the transcript's status line and the composer below it. -->
+    <div class="seat">
+      <div class="transcript">
+        <p>…the last lines of the conversation run right up to the composer.</p>
+        <p class="statusline" role="status">深度求索中...</p>
+      </div>
+      <div class="card">
+        <span class="placeholder">Message DeepSeek…</span>
+        <span class="tobottom">↓</span>
+      </div>
+    </div>
+    <p style="font-size:11px;opacity:.6">
+      The whale is injected as the first child of DSH's <code>[role=status]</code>
+      row, and the label beside it is replaced with a word for what the turn is
+      doing. It takes its ink from that row's gradient — inheriting would paint
+      nothing, because DSH blanks both colour channels to clip the gradient to
+      the glyphs. Change <strong>state</strong> above to see both. At
+      <code>idle</code> the surface stays mounted here so the calm profile can be
+      reviewed in place; in DSH the slot entry simply unmounts, and the label you
+      see is DSH's own, restored.
+    </p>
+  </section>
+
+  <section>
+    <h2>Whale Dock — shell overlay</h2>
+    <div class="frame"><div class="overlay" id="dock-host"></div></div>
+  </section>
+
+  <section>
+    <h2>Mark at review sizes</h2>
+    <div class="rule"><span id="size-18"></span><code>18</code><span id="size-22"></span><code>22</code><span id="size-26"></span><code>26</code></div>
+    <div class="rule"><span id="size-42"></span><code>42</code><span id="size-64"></span><code>64</code></div>
+  </section>
+
+  <section>
+    <h2>Light / dark</h2>
+    <div class="grid-2">
+      <div class="swatch light" id="swatch-light"></div>
+      <div class="swatch dark" id="swatch-dark"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// --- DSH client-module shim -------------------------------------------------
+// The demo loads the real production bundle. Only `react` is external, and the
+// demo never renders the React adapters, so a stub satisfies the factory.
+window.__DEMO__ = {}
+window.__ModuleLoader__ = {
+  load({ factory }) {
+    const reactStub = {
+      createElement: () => null,
+      useEffect: () => {},
+      useRef: () => ({ current: null }),
+    }
+    window.__DEMO__.client = factory((id) => {
+      if (id === 'react') return reactStub
+      throw new Error('unexpected external: ' + id)
+    })
+  },
+}
+
+// Reduced motion is driven by the checkbox, so the fallback path is reviewable
+// without changing a system setting.
+const reducedListeners = new Set()
+let reducedMatches = false
+const nativeMatchMedia = window.matchMedia.bind(window)
+window.matchMedia = (query) => {
+  if (query !== '(prefers-reduced-motion: reduce)') return nativeMatchMedia(query)
+  const mql = {
+    media: query,
+    get matches() { return reducedMatches },
+    addEventListener: (_t, fn) => reducedListeners.add(fn),
+    removeEventListener: (_t, fn) => reducedListeners.delete(fn),
+    addListener: (fn) => reducedListeners.add(fn),
+    removeListener: (fn) => reducedListeners.delete(fn),
+  }
+  return mql
+}
+function setReduced(value) {
+  reducedMatches = value
+  for (const fn of [...reducedListeners]) fn({ matches: value })
+}
+</script>
+<script src="../lib/client.js"></script>
+<script>
+const api = window.__DEMO__.client
+api.injectPluginCss(document)
+
+const seed = api.seededRandom(20260913)
+const motion = () => document.getElementById('motion').value
+/** The state picker's value, as the plugin's own `{ state, task }` shape. */
+function activity() {
+  const [state, task] = document.getElementById('state').value.split(':')
+  return task === undefined ? { state } : { state, task }
+}
+const state = () => activity().state
+let t = api.fallbackTranslate(document.getElementById('locale').value)
+
+const inline = api.mountStatusWhale({
+  document,
+  match: api.makeStatusMatcher(t),
+  size: 26,
+  motion: motion(),
+  activity: activity(),
+  word: api.statusWordFor(activity(), t),
+  random: api.seededRandom(1001),
+})
+
+const marks = [['size-18',18],['size-22',22],['size-26',26],['size-42',42],['size-64',64],
+               ['swatch-light',64],['swatch-dark',64]].map(([id, size], i) =>
+  api.mountWhale({
+    host: document.getElementById(id),
+    size,
+    state: state(),
+    motion: motion(),
+    random: api.seededRandom(2000 + i),
+  }),
+)
+
+const dock = api.mountWhaleDock({
+  host: document.getElementById('dock-host'),
+  state: state(),
+  motion: motion(),
+  inlineEnabled: true,
+  t: api.fallbackTranslate(navigator.language),
+  random: seed,
+  onMotion: (value) => { document.getElementById('motion').value = value; sync() },
+})
+
+function sync() {
+  const a = activity()
+  const s = a.state
+  const m = motion()
+  inline.setActivity(a, api.statusWordFor(a, t))
+  inline.setMotion(m)
+  for (const mark of marks) { mark.setState(s); mark.setMotion(m) }
+  dock.setState(s)
+  dock.setMotion(m)
+  document.getElementById('log').textContent =
+    `${api.activityTag(a)} · ${m} · ${reducedMatches ? 'reduced' : 'normal'} · dock ${dock.isExpanded() ? 'open' : 'closed'}`
+  travel.length = 0
+}
+
+// Stand in for DSH's theme presenter: it writes `data-ds-dark-theme` plus the
+// `--dsw-alias-*` tokens onto document.body, and the plugin's colours ride
+// those. Values copied from @deepseek-ai/dsh-client-ui-theme@0.1.5-rc.2 so the
+// demo shows the palette the app actually produces, not an approximation.
+const DSH_TOKENS = {
+  light: {
+    '--dsw-alias-bg-base': '#fff',
+    '--dsw-alias-bg-layer-2': '#fff',
+    '--dsw-alias-button-floating-fill': '#fff',
+    '--dsw-alias-border-l3': '#0000001f',
+    '--dsw-alias-button-ghost-active-fill': '#ebeef2',
+    '--dsw-alias-label-primary': '#0f1115',
+    '--dsw-alias-label-secondary': '#61666b',
+    '--dsw-alias-label-tertiary': '#81858c',
+    '--dsw-alias-label-caption': '#adb2b8',
+  },
+  dark: {
+    '--dsw-alias-bg-base': '#151517',
+    '--dsw-alias-bg-layer-2': '#2c2c2e',
+    '--dsw-alias-button-floating-fill': '#2c2c2e',
+    '--dsw-alias-border-l3': '#ffffff29',
+    '--dsw-alias-button-ghost-active-fill': '#43454a',
+    '--dsw-alias-label-primary': '#f9fafb',
+    '--dsw-alias-label-secondary': '#cfd3d6',
+    '--dsw-alias-label-tertiary': '#adb2b8',
+    '--dsw-alias-label-caption': '#81858c',
+  },
+}
+function setDark(on) {
+  document.body.dataset.theme = on ? 'dark' : 'light'
+  if (on) document.body.setAttribute('data-ds-dark-theme', '')
+  else document.body.removeAttribute('data-ds-dark-theme')
+  for (const [name, value] of Object.entries(DSH_TOKENS[on ? 'dark' : 'light'])) {
+    document.body.style.setProperty(name, value)
+  }
+}
+setDark(false)
+
+// Query parameters drive the same controls, so scripts/visual-shots.mjs can
+// capture each review scenario without a driver.
+const params = new URLSearchParams(location.search)
+if (params.has('state')) document.getElementById('state').value = params.get('state')
+// `?thinking=0` still selects idle, so older screenshot scenarios keep working.
+if (params.has('thinking')) {
+  document.getElementById('state').value = params.get('thinking') === '0' ? 'idle' : 'thinking'
+}
+if (params.has('locale')) document.getElementById('locale').value = params.get('locale')
+if (params.has('motion')) document.getElementById('motion').value = params.get('motion')
+if (params.has('dark')) {
+  document.getElementById('dark').checked = true
+  setDark(true)
+}
+if (params.has('reduced')) {
+  document.getElementById('reduced').checked = true
+  setReduced(true)
+}
+if (params.has('open')) dock.setExpanded(true)
+if (params.has('leap')) {
+  // Replayed on an interval so a screenshot scenario can catch the arc.
+  const replay = () => { inline.view()?.leap(); dock.view.leap(); for (const m of marks) m.leap() }
+  replay()
+  setInterval(replay, 2200)
+}
+
+document.getElementById('leap').addEventListener('click', () => {
+  inline.view()?.leap()
+  dock.view.leap()
+  for (const mark of marks) mark.leap()
+})
+document.getElementById('state').addEventListener('change', sync)
+document.getElementById('locale').addEventListener('change', (e) => {
+  t = api.fallbackTranslate(e.target.value)
+  sync()
+})
+document.getElementById('motion').addEventListener('change', sync)
+document.getElementById('reduced').addEventListener('change', (e) => { setReduced(e.target.checked); sync() })
+document.getElementById('dark').addEventListener('change', (e) => setDark(e.target.checked))
+document.getElementById('toggle-dock').addEventListener('click', () => { dock.setExpanded(!dock.isExpanded()); sync() })
+document.getElementById('stress').addEventListener('click', () => {
+  // Interruption check: six toggles inside one transition must settle open.
+  for (let i = 0; i < 6; i++) dock.setExpanded(i % 2 === 0)
+  dock.setExpanded(true)
+  sync()
+})
+// Live pixel readout: the same quantity test/perception.test.mjs asserts on,
+// so a visual review and the test suite are talking about the same number.
+const travel = []
+setInterval(() => {
+  const view = inline.view()
+  if (view === null) return
+  const pose = view.engine.currentPose
+  travel.push({ x: pose.bodyX, y: pose.bodyY })
+  if (travel.length > 360) travel.shift()
+  // Needs a real six seconds of frames. A headless screenshot barely advances
+  // requestAnimationFrame, so say so rather than reporting a misleading number.
+  if (travel.length < 360) {
+    document.getElementById('travel').textContent = `sampling… ${travel.length}/360 frames`
+    return
+  }
+  const xs = travel.map((p) => p.x)
+  const ys = travel.map((p) => p.y)
+  const span = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
+  document.getElementById('travel').textContent = `inline travel ≈ ${span.toFixed(2)} px / 6 s`
+}, 1000 / 60)
+
+sync()
+</script>
+</body>
+</html>

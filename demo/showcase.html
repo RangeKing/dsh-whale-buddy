@@ -1,0 +1,230 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dsh-whale-buddy — every animation</title>
+<!--
+  A scripted run through every animation the plugin can produce, built to be
+  filmed rather than clicked. `scripts/record-showcase.mjs` opens this page,
+  waits for window.__SHOWCASE__.done, and encodes the result.
+
+  It runs the production bundle, exactly like demo/index.html, and it drives the
+  same surfaces through their real public API — no bespoke animation lives here.
+  Timings are the only thing this file owns.
+-->
+<style>
+  :root { color-scheme: light; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #eef1f6; color: #10141b; box-sizing: border-box; padding: 28px 0 34px;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 8px;
+  }
+  h1 { margin: 0; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; opacity: .4; font-weight: 600; }
+  .stage { display: flex; gap: 30px; align-items: stretch; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 22px 24px;
+    box-shadow: 0 2px 20px rgba(20, 30, 50, .08); position: relative;
+  }
+  .card h2 { margin: 0 0 16px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .38; font-weight: 600; }
+
+  /* A stand-in for DSH's transcript tail and its running-turn row. */
+  .transcript { width: 446px; font-size: 13px; color: #61666b; }
+  .transcript p { margin: 0 0 6px; }
+  .statusline {
+    display: flex; align-items: center; font-size: 15px; line-height: 24px; min-height: 30px; margin: 10px 0 0;
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg, #4176e6 0%, #4176e6 40%, #d3e2ff 50%, #4176e6 60%, #4176e6 100%);
+  }
+  .composer { margin-top: 14px; border: 1px solid rgba(120,135,155,.24); border-radius: 18px; padding: 14px; color: #adb2b8; }
+
+  /* A stand-in for DSH's shell overlay, so the Dock has an edge to hold. */
+  .frame {
+    position: relative; width: 310px; height: 286px; border-radius: 12px; overflow: hidden;
+    border: 1px dashed rgba(120,135,155,.4);
+    background: repeating-linear-gradient(45deg, transparent 0 11px, rgba(120,135,155,.05) 11px 22px);
+  }
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+  .overlay > * { pointer-events: auto; }
+
+  /*
+   * A loupe, not an exaggeration: the whale inside is the panel's real 56 px
+   * one with its real budget, magnified by CSS so a 9 px leap is legible in a
+   * 720p frame. Scaling the parameters instead would film an animation that
+   * does not ship.
+   */
+  .big { display: flex; align-items: center; justify-content: center; width: 230px; height: 250px; }
+  .big > span { display: block; transform: scale(2); transform-origin: center; }
+
+  .caption { height: 46px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .caption b { font-size: 17px; font-weight: 600; letter-spacing: .01em; }
+  .caption span { font-size: 12px; opacity: .5; font-variant-numeric: tabular-nums; }
+  .bar { width: 560px; height: 3px; border-radius: 2px; background: rgba(120,135,155,.22); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: #4176e6; }
+</style>
+
+<h1>dsh-whale-buddy</h1>
+
+<div class="stage">
+  <div class="card">
+    <h2>Inline — inside DSH's status row</h2>
+    <div class="transcript">
+      <p>…the last lines of the conversation run right up to the composer.</p>
+      <p class="statusline" role="status">深度求索中...</p>
+      <div class="composer">Message DeepSeek…</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Whale Dock</h2>
+    <div class="frame"><div class="overlay" id="dock-host"></div></div>
+  </div>
+  <div class="card big"><span><span id="big-whale"></span></span></div>
+</div>
+
+<div class="caption"><b id="cap">—</b><span id="sub"></span></div>
+<div class="bar"><i id="bar"></i></div>
+
+<script>
+// --- DSH client-module shim, identical to demo/index.html --------------------
+window.__DEMO__ = {}
+window.__ModuleLoader__ = {
+  load({ factory }) {
+    const reactStub = { createElement: () => null, useEffect: () => {}, useRef: () => ({ current: null }) }
+    window.__DEMO__.client = factory((id) => {
+      if (id === 'react') return reactStub
+      throw new Error('unexpected external: ' + id)
+    })
+  },
+}
+// Reduced motion is driven by the script, so its fallback is filmable.
+const reducedListeners = new Set()
+let reducedMatches = false
+const nativeMatchMedia = window.matchMedia.bind(window)
+window.matchMedia = (query) => {
+  if (query !== '(prefers-reduced-motion: reduce)') return nativeMatchMedia(query)
+  return {
+    media: query,
+    get matches() { return reducedMatches },
+    addEventListener: (_t, fn) => reducedListeners.add(fn),
+    removeEventListener: (_t, fn) => reducedListeners.delete(fn),
+    addListener: (fn) => reducedListeners.add(fn),
+    removeListener: (fn) => reducedListeners.delete(fn),
+  }
+}
+function setReduced(value) {
+  reducedMatches = value
+  for (const fn of [...reducedListeners]) fn({ matches: value })
+}
+</script>
+<script src="../lib/client.js"></script>
+<script>
+const api = window.__DEMO__.client
+api.injectPluginCss(document)
+const t = api.fallbackTranslate('zh')
+
+const inline = api.mountStatusWhale({
+  document,
+  match: api.makeStatusMatcher(t),
+  size: 30,
+  motion: 'full',
+  activity: { state: 'idle' },
+  word: undefined,
+  random: api.seededRandom(4242),
+})
+const dock = api.mountWhaleDock({
+  host: document.getElementById('dock-host'),
+  state: 'idle', motion: 'full', inlineEnabled: true, t,
+  random: api.seededRandom(99),
+})
+const big = api.mountWhale({
+  host: document.getElementById('big-whale'),
+  size: 56, state: 'idle', motion: 'full', random: api.seededRandom(7),
+})
+big.fitToMark()
+
+const setActivity = (activity) => {
+  inline.setActivity(activity, api.statusWordFor(activity, t))
+  dock.setState(activity.state)
+  big.setActivity(activity)
+}
+const leapAll = () => { inline.view()?.leap(); dock.view.leap(); big.leap() }
+
+/**
+ * The run. Each step names what is on screen and does one thing to produce it.
+ * `ms` is how long the caption stays up, which is also how long the animation
+ * gets to play.
+ */
+const STEPS = [
+  { cap: 'A turn begins — the whale breaches', sub: 'starts under water, gathers, clears the surface entirely, and goes back under', ms: 4200,
+    go: () => { setActivity({ state: 'thinking' }); leapAll() } },
+  { cap: 'The surface moves, so the whale can clear it', sub: 'a row of coupled springs: dented, rebounding into a crown, shedding ripples', ms: 4200,
+    go: () => { setActivity({ state: 'idle' }); setTimeout(() => { setActivity({ state: 'thinking' }); leapAll() }, 420) } },
+  { cap: 'thinking', sub: '深度求索中 — three dots, pulsing in turn', ms: 3600,
+    go: () => setActivity({ state: 'thinking' }) },
+  { cap: 'responding', sub: '正在作答 — a speech bubble, breathing, its tail pointed at the whale', ms: 3600,
+    go: () => setActivity({ state: 'responding' }) },
+  { cap: 'working', sub: '执行命令中 — a wrench, pulled through its arc and snapped back; a bolt only goes one way', ms: 4200,
+    go: () => setActivity({ state: 'working', task: 'running' }) },
+  { cap: 'working · reading', sub: '读取文件中 — files streaming past under the belly, right to left, fading in and out', ms: 5200,
+    go: () => setActivity({ state: 'working', task: 'reading' }) },
+  { cap: 'working · searching', sub: '搜索中 — a magnifier looking around: two sines that never close the path', ms: 4200,
+    go: () => setActivity({ state: 'working', task: 'searching' }) },
+  { cap: 'working · editing', sub: '编辑文件中 — short fast pencil strokes with a slow drift across the line', ms: 4200,
+    go: () => setActivity({ state: 'working', task: 'editing' }) },
+  { cap: 'compacting', sub: '压缩上下文中 — the body squeezed down and sprung back; the one underdamped channel on the mark', ms: 5200,
+    go: () => setActivity({ state: 'compacting' }) },
+  { cap: 'waiting', sub: '等待你的确认 — nearly still, nose up, a question mark tilting', ms: 4000,
+    go: () => setActivity({ state: 'waiting' }) },
+  { cap: 'error', sub: '出错了 — the same construction as the question mark, shaken and red: the one colour in the plugin', ms: 4000,
+    go: () => setActivity({ state: 'error' }) },
+  { cap: 'One thing at a time', sub: 'props swap by retracting and then extending — never two on one whale', ms: 3200,
+    go: () => { setActivity({ state: 'thinking' }); setTimeout(() => setActivity({ state: 'waiting' }), 900); setTimeout(() => setActivity({ state: 'responding' }), 1900) } },
+  { cap: 'idle', sub: 'the turn is over — longer dwell, sparse gestures, nothing on its head', ms: 3200,
+    go: () => setActivity({ state: 'idle' }) },
+  { cap: 'idle — and then bored', sub: 'nine seconds of unbroken quiet before the ball comes out; this is that wait, unedited', ms: 15000,
+    go: () => setActivity({ state: 'idle' }) },
+  { cap: 'Dock — one continuous surface', sub: 'the button opens inward from the same edge', ms: 2600,
+    go: () => dock.setExpanded(true) },
+  { cap: 'Dock — and back', sub: 'the outer edge never moves', ms: 2600,
+    go: () => dock.setExpanded(false) },
+  { cap: 'Dock — drag it up', sub: 'vertical only; a drag does not also open the panel', ms: 2000,
+    go: () => dock.setDockTop(0.08) },
+  { cap: 'Dock — and down', sub: 'stored as a fraction, so it survives a resize', ms: 2000,
+    go: () => dock.setDockTop(0.88) },
+  { cap: 'Dock — back to the middle', sub: '', ms: 1600,
+    go: () => dock.setDockTop(0.5) },
+  { cap: 'Reduced motion', sub: 'stable states, no breach, no sea, no prop — every control still works', ms: 3200,
+    go: () => { setReduced(true); setActivity({ state: 'working', task: 'running' }); leapAll() } },
+  { cap: 'Motion restored — the next turn', sub: 'one breach per turn, never per re-render', ms: 4200,
+    go: () => { setReduced(false); setActivity({ state: 'idle' }); setTimeout(() => { setActivity({ state: 'thinking' }); leapAll() }, 600) } },
+  { cap: 'idle', sub: '', ms: 2200, go: () => setActivity({ state: 'idle' }) },
+]
+
+const total = STEPS.reduce((sum, s) => sum + s.ms, 0)
+const cap = document.getElementById('cap')
+const sub = document.getElementById('sub')
+const bar = document.getElementById('bar')
+window.__SHOWCASE__ = { done: false, total }
+
+async function run() {
+  let elapsed = 0
+  for (const step of STEPS) {
+    cap.textContent = step.cap
+    sub.textContent = step.sub
+    step.go()
+    const start = performance.now()
+    await new Promise((resolve) => {
+      const tick = () => {
+        const p = Math.min(1, (performance.now() - start) / step.ms)
+        bar.style.width = `${((elapsed + p * step.ms) / total) * 100}%`
+        if (p >= 1) resolve()
+        else requestAnimationFrame(tick)
+      }
+      tick()
+    })
+    elapsed += step.ms
+  }
+  window.__SHOWCASE__.done = true
+}
+// A beat of stillness first, so the recording does not open mid-motion.
+setTimeout(run, 900)
+</script>
