@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="licence: BSD-3-Clause" src="https://img.shields.io/badge/licence-BSD--3--Clause-2563eb?style=flat-square">
-  <img alt="DSH: 0.1.5-rc.2" src="https://img.shields.io/badge/DSH-0.1.5--rc.2-0ea5e9?style=flat-square">
+  <img alt="DSH: 0.1.5 – 0.1.7-rc.1" src="https://img.shields.io/badge/DSH-0.1.5%20%E2%80%93%200.1.7--rc.1-0ea5e9?style=flat-square">
   <img alt="tests: 138 passing" src="https://img.shields.io/badge/tests-138%20passing-16a34a?style=flat-square">
   <img alt="runtime dependencies: 0" src="https://img.shields.io/badge/runtime%20deps-0-8b5cf6?style=flat-square">
 </p>
@@ -47,7 +47,7 @@ Built on a deterministic spring physics engine, the whale breaches through simul
   Instantly mirrors thinking, streaming responses, tool execution, file reading/editing, context compaction, and user interaction states with clear status labels and bespoke monochrome vector props.
 
 - 🧷 **Dual Seamless Surfaces**  
-  - **Inline Status Whale**: Nestled directly inside the conversation status row with zero layout shift or visual jitter.  
+  - **Inline Status Whale**: Nestled directly inside the conversation status row with zero layout shift or visual jitter — or, with the classic option on, in DSH 0.1.5's blue "Deep diving..." row above the composer.  
   - **Whale Dock**: A sleek, edge-anchored floating pill button on the right edge, draggable vertically, expanding smoothly into a comprehensive companion panel.
 
 - 🎨 **Native Visual Integration**  
@@ -66,6 +66,10 @@ When a conversation turn begins, the inline whale executes an authored breach ou
 
 - **Zero Layout Shift**: Employs calculated negative bleeds (`fitToMark()`) so the breach arc overflows cleanly without shifting surrounding chat layout.
 - **Native Ink Sampling**: Dynamically extracts DSH's gradient stops on mount, harmonizing with both dark and light modes.
+- **Both DSH Label Shapes**:
+  - **DSH 0.1.7** removed the blue "Deep diving..." row; the running label now lives in the turn's grey fold header ("深度求索中，用时12秒"). The whale goes into that header and wears its grey, and only the leading words are swapped (`读取文件中，用时12秒`), so DSH's own clock keeps ticking.
+  - **DSH 0.1.5** still draws the blue row, and the whale goes into it as before.
+- **Classic "Deep diving" option** (Dock panel → *Classic "Deep diving"*, off by default): on DSH 0.1.7, draws the old blue row back — same type, same gradient sweep, clock after 15 s — directly above the composer with the whale in it, and leaves DSH's grey header untouched. Unlike the default, this row takes space: it appears and leaves once per turn, as DSH 0.1.5's own row did. On DSH 0.1.5 it does nothing, because the row is already there.
 
 ### 2. Whale Dock & Companion Panel
 
@@ -130,7 +134,7 @@ npm ci
 npm run build
 ```
 
-**Environment Requirement:** DeepSeek Harness `0.1.5-rc.2` or compatible (requires `shell.overlay` and `conversation.input.overlay` extension slots).
+**Environment Requirement:** DeepSeek Harness `0.1.5-rc.2` through `0.1.7-rc.1` (requires the `shell.overlay` and `conversation.input.overlay` extension slots; the classic row also uses `conversation.input.dock`).
 
 ---
 
@@ -142,6 +146,7 @@ Configure preferences directly from the Whale Dock panel, or set them via `local
 | :--- | :--- | :--- | :--- |
 | `dsh-whale-buddy.enabled` | `1` / `0` | `1` | Global master toggle |
 | `dsh-whale-buddy.inlineEnabled` | `1` / `0` | `1` | Enable/disable inline status whale |
+| `dsh-whale-buddy.classicStatus` | `1` / `0` | `0` | Draw DSH 0.1.5's blue "Deep diving..." row above the composer (DSH 0.1.7+) |
 | `dsh-whale-buddy.dockEnabled` | `1` / `0` | `1` | Enable/disable Whale Dock |
 | `dsh-whale-buddy.size` | `18` – `36` | `26` | Inline whale display size (px) |
 | `dsh-whale-buddy.motion` | `full` / `subtle` / `static` | `full` | Motion profile intensity |
@@ -157,7 +162,7 @@ Configure preferences directly from the Whale Dock panel, or set them via `local
 - **Sub-Pixel Precision**: All trajectory scales and travel amplitudes are computed in CSS pixel dimensions rather than relative vector coordinates, guaranteeing razor-sharp visuals at any display scaling factor.
 
 ### 2. Non-Destructive DOM Anchoring & Zero Reflow
-- **Reference Identity Tracking**: Hooks into the DSH status element once via `role="status"`, then tracks the DOM node by reference identity to eliminate recursive re-matching loops during text changes.
+- **Reference Identity Tracking**: Hooks into the DSH status element once via `role="status"`, then tracks the DOM node by reference identity to eliminate recursive re-matching loops during text changes. On DSH 0.1.7 the `role="status"` element is a hidden announcement; the anchor follows it to the `[data-turn-process]` header right after it, and never writes into the announcement itself.
 - **Negative-Bleed Headroom (`fitToMark()`)**: Offsets visual headroom through negative margins, keeping the host layout box clamped at a stable 26 px without triggering document reflows.
 - **Clean Lifecycle Teardown**: Automatically detaches all MutationObservers, animation frame loops, and restores DSH's original DOM state upon unmounting or session switching.
 
@@ -233,7 +238,8 @@ npm run film        # Record showcase animation video
 
 ## 🧩 Compatibility & Graceful Fallbacks
 
-- **Verified Host**: `@deepseek-ai/dsh@0.1.5-rc.1` with client packages at `0.1.5-rc.2`.
+- **Verified Hosts**: `@deepseek-ai/dsh@0.1.5-rc.1` with client packages at `0.1.5-rc.2` (measured in the running app); client packages at `0.1.7-rc.1` (types, and markup read from the published `ui-chat` / `ui-conversation` bundles — not yet run against a live 0.1.7 app).
+- **DSH 0.1.7 signal changes**: `useSessionPendingInteraction` is gone (the waiting state now reads `useSessionStatus`), and the session list no longer names the current session, so the Dock takes its state from the session-scoped entry instead. Both are handled per host, so 0.1.5 keeps working.
 - **Graceful Degradation**: If future DSH updates change internal slot names or alter status row markup, the plugin fails silently without interrupting conversation flow.
 - **Dynamic Theme Adaptation**: Adapts automatically to DSH `--dsw-alias-*` CSS variables, backed by high-contrast standalone fallback themes.
 
@@ -243,6 +249,7 @@ npm run film        # Record showcase animation video
 
 - **Implementation Heritage**: [dsh-thought-buddy](https://github.com/dsh-plugins/dsh-thought-buddy) (BSD-3-Clause) for the host/client bundle architecture, fixed-step spring timing model, and bundle verification strategy.
 - **Interaction Inspiration**: [dsh-notch](https://github.com/aa2246740/dsh-notch) (MIT) for the edge-anchored continuous surface concept.
+- **Classic Row Styling**: an independent re-creation of DSH 0.1.5's running-turn label style (`@deepseek-ai/dsh-client-ui-chat`, MIT, © DeepSeek), using DSH's own design tokens.
 - **Trademark Notice**: The whale mark is the intellectual property of DeepSeek, incorporated from [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (`FishLogo.tsx`) with zero coordinate alterations.
 
 ---

@@ -14,9 +14,11 @@ import { createElement, useEffect, useRef, useSyncExternalStore, type ReactEleme
 
 import type { Translate } from '../locales.js'
 import type { WhaleSnapshot, WhaleStateStore } from '../state/whale-state.js'
+import { classicSeat } from '../surfaces/classic-status.js'
 import { mountStatusWhale, type InlineStatusWhale } from '../surfaces/inline-status.js'
 import { mountWhaleDock, type WhaleDock } from '../surfaces/whale-dock.js'
 import type { MotionMode, WhaleActivity } from '../whale/types.js'
+import type { StatusRowKind } from './status-anchor.js'
 
 /**
  * Subscribe a slot entry to the shared store.
@@ -46,6 +48,24 @@ export interface InlineHostProps {
   readonly word: string | undefined
   /** Recognises DSH's running-turn label among the page's status regions. */
   readonly match: (text: string) => boolean
+  /** Which of DSH's row shapes to take; see `StatusAnchorOptions.claim`. */
+  readonly claim?: (kind: StatusRowKind) => boolean
+  /** Told the shape of every DSH row found. */
+  readonly onFound?: (kind: StatusRowKind) => void
+}
+
+/** Props the classic-row adapter needs. */
+export interface ClassicHostProps {
+  readonly store: WhaleStateStore
+  readonly activity: WhaleActivity
+  readonly word: string | undefined
+  /** The row's resting word — the plugin's "thinking". */
+  readonly fallbackWord: string
+  /** When the turn began, epoch ms, or null to count from mount. */
+  readonly turnStart: number | null
+  /** Whether the turn is still open; the clock stops when it is not. */
+  readonly running: boolean
+  readonly formatClock: (elapsedMs: number) => string
 }
 
 /** Props the dock adapter needs. */
@@ -64,16 +84,18 @@ export interface DockHostProps {
  * @param props - the shared store, the activity, and the label to show.
  * @returns nothing; the surface is attached imperatively.
  */
-export function InlineWhaleHost({ store, activity, word, match }: InlineHostProps): null {
+export function InlineWhaleHost({ store, activity, word, match, claim, onFound }: InlineHostProps): null {
   const handle = useRef<InlineStatusWhale | null>(null)
-  const live = useRef({ activity, word })
-  live.current = { activity, word }
+  const live = useRef({ activity, word, onFound })
+  live.current = { activity, word, onFound }
 
   useEffect(() => {
     const snapshot = store.getSnapshot()
     const whale = mountStatusWhale({
       document,
       match,
+      ...(claim === undefined ? {} : { claim }),
+      onFound: (kind) => live.current.onFound?.(kind),
       size: snapshot.config.size,
       motion: snapshot.config.motion,
       activity: live.current.activity,
@@ -92,14 +114,79 @@ export function InlineWhaleHost({ store, activity, word, match }: InlineHostProp
     // Config changes arrive through the subscription; activity through the
     // effect below. Re-running this one would restart the swim every second.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, match])
+  }, [store, match, claim])
 
   useEffect(() => {
     handle.current?.setActivity(activity, word)
   }, [activity, word])
 
-
   return null
+}
+
+/**
+ * React shell around the classic row.
+ *
+ * Unlike the inline host this one owns real layout: the row is plugin DOM
+ * inside a slot entry, so the element it renders is where the row goes.
+ * @param props - the store, the activity and the row's copy.
+ * @returns the element the row is built into.
+ */
+export function ClassicWhaleHost({
+  store,
+  activity,
+  word,
+  fallbackWord,
+  turnStart,
+  running,
+  formatClock,
+}: ClassicHostProps): ReactElement {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const handle = useRef<InlineStatusWhale | null>(null)
+  const live = useRef({ activity, word, turnStart, running, formatClock })
+  live.current = { activity, word, turnStart, running, formatClock }
+
+  useEffect(() => {
+    const container = ref.current
+    if (container === null) return undefined
+    const snapshot = store.getSnapshot()
+    const whale = mountStatusWhale({
+      document,
+      seat: classicSeat({
+        document,
+        container,
+        fallbackWord,
+        // Getters, not values: the row is built once per turn, and DSH can
+        // publish the turn's start after the row already exists.
+        startTime: () => live.current.turnStart,
+        live: () => live.current.running,
+        formatClock: (ms) => live.current.formatClock(ms),
+        motion: snapshot.config.motion,
+      }),
+      size: snapshot.config.size,
+      motion: snapshot.config.motion,
+      activity: live.current.activity,
+      word: live.current.word,
+    })
+    handle.current = whale
+    const stop = store.subscribe((next) => {
+      whale.setMotion(next.config.motion)
+      whale.setSize(next.config.size)
+    })
+    return () => {
+      stop()
+      handle.current = null
+      whale.destroy()
+    }
+    // The row lives for one turn — the entry keys it by turn — so a copy
+    // change mid-turn is not worth a rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store])
+
+  useEffect(() => {
+    handle.current?.setActivity(activity, word)
+  }, [activity, word])
+
+  return createElement('div', { ref, 'data-whale-buddy-classic-host': '' })
 }
 
 /**
@@ -120,9 +207,11 @@ export function WhaleDockHost({ store, t }: DockHostProps): ReactElement {
       state: snapshot.state,
       motion: snapshot.config.motion,
       inlineEnabled: snapshot.config.inlineEnabled,
+      classicStatus: snapshot.config.classicStatus,
       dockTop: snapshot.config.dockTop,
       t,
       onInlineEnabled: (enabled) => store.setConfig('inlineEnabled', enabled),
+      onClassicStatus: (enabled) => store.setConfig('classicStatus', enabled),
       onMotion: (motion: MotionMode) => store.setConfig('motion', motion),
       onDockTop: (top) => store.setConfig('dockTop', top),
     })
@@ -132,6 +221,7 @@ export function WhaleDockHost({ store, t }: DockHostProps): ReactElement {
       dock.setState(next.state)
       dock.setMotion(next.config.motion)
       dock.setInlineEnabled(next.config.inlineEnabled)
+      dock.setClassicStatus(next.config.classicStatus)
       dock.setDockTop(next.config.dockTop)
     })
     return () => {

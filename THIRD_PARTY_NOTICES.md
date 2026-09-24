@@ -35,6 +35,7 @@ derivative). It is written to be true rather than generous in either direction.
 | OpenBotMotion robot assets / resource data | OpenBotMotion (via dsh-notch) | MIT | **not used** | no |
 | DeepSeek whale mark path data (`src/client/whale/geometry.ts`) | deepseek-harness `packages/client/ui-primitives/src/FishLogo.tsx` | MIT (code); trademark not licensed | artwork reference, reproduced verbatim | yes — source and unofficial-project notice |
 | Slot API, session facts, `shell.overlay` layer | deepseek-harness (`@deepseek-ai/dsh-client-*`) | MIT | consumed as a dependency, not copied | no |
+| Classic status row look — 0.1.5 running-turn label type, gradient sweep, late clock and its templates (`src/client/surfaces/classic-status.ts`, `.wb-classic*` in `src/client/styles/plugin-css.ts`) | deepseek-harness `@deepseek-ai/dsh-client-ui-chat@0.1.5-rc.2` (`ChatView` `turnStatus` style, `formatRunDuration`) | MIT | visual style re-created from the published values; DSH's design tokens referenced by name; no source copied | acknowledgement |
 
 ---
 
@@ -233,3 +234,12 @@ artwork will be replaced on request.
 consumed as declared dependencies and as the host's own runtime. No source from
 them is copied into this repository; the build treats `react` as the only
 external module and bundles nothing from them.
+
+The classic status row (opt-in, `classicStatus`) re-draws the look of DSH
+0.1.5's running-turn label, which DSH 0.1.7 removed. Its CSS was written for
+this project from the values that label published — the
+`--dsw-static-deepseek-500` / `-200` gradient stops, the 1.8 s sweep, the
+14 px strong type, the clock shown after 15 s and formatted as `{seconds}s` /
+`{minutes}m {seconds}s` — and it references DSH's design tokens by name, with
+the hex DSH ships for each as a fallback. No DSH source file is copied. The
+upstream package is MIT, Copyright (c) 2026 DeepSeek.

@@ -58,6 +58,17 @@ export function createHarness({ reducedMotion = false } = {}) {
   window.clearTimeout = (id) => {
     timers.delete(id)
   }
+  // The classic row's clock ticks on an interval; it runs on the same queue so
+  // a test can count it and a teardown can be seen to cancel it.
+  window.setInterval = (callback, delay = 0) => {
+    const id = ++timerSeq
+    const every = Math.max(1, delay)
+    timers.set(id, { callback, at: now + every, every })
+    return id
+  }
+  window.clearInterval = (id) => {
+    timers.delete(id)
+  }
   // The word hold in `inline-status.ts` measures elapsed time with
   // performance.now(). Leaving that on the real clock makes the hold a race
   // against how fast the test runner happens to be, so it reads the same
@@ -86,10 +97,15 @@ export function createHarness({ reducedMotion = false } = {}) {
   // ---- module loader shell ----------------------------------------------
   let loaded = null
   let declaration = null
+  // Enough of React to call a hook once, synchronously, outside a renderer.
   const react = {
     createElement: () => null,
     useEffect: () => {},
-    useRef: () => ({ current: null }),
+    useRef: (initial = null) => ({ current: initial }),
+    useMemo: (build) => build(),
+    useCallback: (fn) => fn,
+    useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
+    useSyncExternalStore: (_subscribe, get) => get(),
   }
   window.__ModuleLoader__ = {
     load(spec) {
@@ -163,7 +179,8 @@ export function createHarness({ reducedMotion = false } = {}) {
       const due = [...timers.entries()].filter(([, timer]) => timer.at <= now)
       if (due.length === 0) return
       for (const [id, timer] of due) {
-        timers.delete(id)
+        if (timer.every === undefined) timers.delete(id)
+        else timer.at += timer.every
         timer.callback()
       }
     }

@@ -1,20 +1,24 @@
 /**
  * dsh-whale-buddy — browser half.
  *
- * Two slot registrations and one shared store:
+ * Three slot registrations and one shared store:
  *
- *  - `conversation.input.overlay` (session-scoped list) holds the inline
- *    thinking whale. DSH 0.1.5 has no seat beside the "Deep diving…" status
- *    line, and of the documented alternatives this is the only one that is
- *    free: its anchor is `height: 0; position: absolute` at the top edge of the
- *    composer card, inside a card that does not clip overflow, so an entry
- *    costs nothing in flow and can float into the seam above the composer.
- *
- *    The obvious-looking neighbour, `conversation.input.dock`, is not free.
- *    It sits inside the composer seat, and DSH observes that seat's height to
- *    drive the transcript's bottom padding — so a whale that appears for the
- *    duration of a turn would reflow the whole conversation twice per turn.
- *    The whale keys off `SessionSnapshot.running`: a real signal, not the text.
+ *  - `conversation.input.overlay` (session-scoped list) is the lifecycle host
+ *    of the inline thinking whale. DSH has no seat beside its running-turn
+ *    label in either 0.1.5 or 0.1.7, so this entry renders nothing of its own:
+ *    it owns the per-session mount of `integration/status-anchor`, which puts
+ *    the whale into DSH's label wherever this DSH build draws it. The overlay
+ *    anchor is `height: 0; position: absolute`, so the entry costs nothing in
+ *    flow. The whale keys off `SessionSnapshot.running`: a real signal, not
+ *    the text.
+ *  - `conversation.input.dock` (session-scoped list) holds the classic row,
+ *    only when the user has asked for it: DSH 0.1.5's blue "深度求索中..." with
+ *    the whale in it, re-drawn above the composer because DSH 0.1.7 no longer
+ *    draws it. This slot is *not* free — it sits inside the composer seat,
+ *    whose height DSH turns into the transcript's bottom padding, so the row
+ *    appearing and leaving moves the conversation by one row per turn. That is
+ *    exactly what DSH's own row did in 0.1.5, which is the thing being asked
+ *    for; it is why the row is opt-in rather than the default.
  *  - `shell.overlay` (root-scoped list) holds the Whale Dock. It is DSH's
  *    documented frame-wide floating layer: additive, click-through except where
  *    an entry opts in, and outside every column's scroll container. That is
@@ -24,13 +28,11 @@
  * The plugin/host split and the `apply` → disposer shape are adapted from
  * dsh-thought-buddy (BSD-3-Clause). See THIRD_PARTY_NOTICES.md.
  */
-import { createElement, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { TrajectorySnapshot } from '@deepseek-ai/dsh-client-ui-trajectory/client'
-import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-trajectory/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
@@ -38,14 +40,17 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 
-import { InlineWhaleHost, useWhaleSnapshot, WhaleDockHost } from './integration/dsh.js'
 import {
-  activityOf,
-  ERROR_HOLD_MS,
-  NO_ERROR_PULSE,
-  stateOfSessionList,
-  stepErrorPulse,
-} from './integration/thinking-state.js'
+  ClassicWhaleHost,
+  InlineWhaleHost,
+  useWhaleSnapshot,
+  WhaleDockHost,
+} from './integration/dsh.js'
+import { probeStatusShape } from './integration/status-anchor.js'
+import { useSessionActivity } from './integration/session-activity.js'
+import type { StatusRowKind } from './integration/status-anchor.js'
+import { stateOfSessionList, type SessionListFacts } from './integration/thinking-state.js'
+import { formatClassicClock } from './surfaces/classic-status.js'
 import {
   en,
   fallbackTranslate,
@@ -76,6 +81,12 @@ type InlineEntryProps = PropsRuntime<'conversation.input.overlay'> & {
   t: Translate
 }
 
+/** Props of the `conversation.input.dock` entry. */
+type ClassicEntryProps = PropsRuntime<'conversation.input.dock'> & {
+  store: WhaleStateStore
+  t: Translate
+}
+
 /**
  * Recognises DSH's own running-turn label.
  *
@@ -83,10 +94,11 @@ type InlineEntryProps = PropsRuntime<'conversation.input.overlay'> & {
  * row, and a matcher written twice is a matcher that drifts.
  *
  * DSH ships exactly one — `chat.deepDiving`, "Deep diving..." in English and
- * "深度求索中..." in Chinese — and it is the anchor the whale attaches to. Once
- * attached, the label is replaced by one of this plugin's own words, so the
- * matcher also accepts those: without that, the row would stop being
- * recognisable the moment it was relabelled.
+ * "深度求索中..." (0.1.5) or "深度求索中" (0.1.7) in Chinese — and it is the
+ * anchor the whale attaches to. Once attached to a 0.1.5 row, the label is
+ * replaced by one of this plugin's own words, so the matcher also accepts
+ * those: without that, the row would stop being recognisable the moment it
+ * was relabelled.
  */
 export function makeStatusMatcher(t: Translate): (text: string) => boolean {
   const ours = new Set(
@@ -109,7 +121,9 @@ export function makeStatusMatcher(t: Translate): (text: string) => boolean {
   return (text) => {
     const value = text.trim()
     if (value === '') return false
-    if (/diving|深度求索/i.test(value)) return true
+    // Anchored: DSH's label *starts* with these words ("深度求索中，用时12秒"),
+    // while an error row that merely mentions the company does not.
+    if (/^(?:deep diving|深度求索)/i.test(value)) return true
     for (const word of ours) {
       if (word !== '' && value.startsWith(word)) return true
     }
@@ -117,8 +131,11 @@ export function makeStatusMatcher(t: Translate): (text: string) => boolean {
   }
 }
 
-/** Stand-in for a host that carries no Trajectory target: nothing is compacting. */
-const NO_TRAJECTORY = (): boolean => false
+/**
+ * With the classic row on, the anchor takes only a row DSH draws in the old
+ * shape. Module-level so its identity is stable across renders.
+ */
+const LEGACY_ONLY = (kind: StatusRowKind): boolean => kind === 'legacy'
 
 /** Props of the `shell.overlay` entry. */
 type DockEntryProps = PropsRuntime<'shell.overlay'> & { store: WhaleStateStore; t: Translate }
@@ -126,103 +143,93 @@ type DockEntryProps = PropsRuntime<'shell.overlay'> & { store: WhaleStateStore; 
 /**
  * Inline entry: renders the whale only while this session's turn is running
  * and the user has the inline surface switched on.
+ *
+ * With the classic row switched on it still runs, but asks the anchor for a
+ * DSH-drawn classic row only. On DSH 0.1.5 that row exists, the whale goes
+ * into it exactly as before, and the plugin's own copy stands down; on 0.1.7
+ * it does not, and the anchor goes to sleep at the first grey header it sees.
  * @param props - the slot's owner share plus the shared store.
  * @returns the inline whale, or nothing.
  */
-function InlineEntry({
-  useSession,
-  useChat,
-  useTrajectory,
-  useSessionPendingInteraction,
-  sessionId,
-  store,
-  t,
-}: InlineEntryProps): ReactElement | null {
-  // This slot declares no owner share, so every fact comes from the
-  // framework's selector hooks rather than from props.
-  // Every one of these selects a primitive on purpose: the snapshot hooks
-  // compare a selector's result by identity, and the chat timeline is
-  // republished as the same object, so selecting it wholesale never re-renders.
-  const running = useSession(
-    (snapshot: SessionSnapshot) => snapshot.running === true || snapshot.awaitingFirstTurn === true,
-  )
-  // `legacy` is DSH's own name for this slice, and it is the only place the
-  // client publishes in-flight tool calls — DSH drives its stats pills from the
-  // same field. Read defensively: if a future version drops it, the whale falls
-  // back to "thinking" instead of throwing inside a slot entry.
-  const toolName = useChat(
-    (snapshot: ChatSnapshot) => snapshot.legacy?.runningCalls?.at(-1)?.name,
-  )
-  const streaming = useChat(
-    (snapshot: ChatSnapshot) => (snapshot.legacy?.partial ?? null) !== null,
-  )
-  const pending = useSessionPendingInteraction(
-    (map: SessionPendingInteractionSnapshot) => map.get(sessionId) !== undefined,
-  )
-  // Compaction is the one fact that is not in the session or the chat slice.
-  // It lives on the Trajectory target as a provider request with
-  // `purpose: 'compaction'`, and `useTrajectory` is declared on
-  // SessionStandardProps, so a session-scoped entry like this one is handed it.
-  //
-  // The trajectory package is not in this plugin's `inject` list, deliberately:
-  // injecting a package a given DSH build does not carry fails activation
-  // outright, and losing every surface to gain one state is the wrong trade.
-  // The rule for anything read out of DSH here is fail quiet, so a host without
-  // it simply never reports a compaction. `NO_TRAJECTORY` is a plain function
-  // rather than a conditional call, so the hook count cannot change under React.
-  const compacting = (useTrajectory ?? NO_TRAJECTORY)((snapshot: TrajectorySnapshot) =>
-    (snapshot.requests ?? []).some(
-      (request: { purpose?: string; status?: string }) =>
-        request.purpose === 'compaction' && request.status === 'running',
-    ),
-  )
-  // A *string*, not a boolean, because DSH latches this field: it holds the
-  // last error that ever happened on the session and never clears it. Measured
-  // on a freshly opened DSH, a never-used session already carried a resume
-  // failure from a different session — read as a boolean that is a permanent
-  // red mark for something nobody saw. `stepErrorPulse` turns the value into an
-  // event; only a change while this mount is watching counts.
-  const errorText = useSession((snapshot: SessionSnapshot) => {
-    const agent = snapshot.lastAgentError ?? null
-    const prompt = snapshot.promptError ?? null
-    return agent === null && prompt === null ? null : `${String(agent)}|${String(prompt)}`
-  })
-  const pulse = useRef(NO_ERROR_PULSE)
-  const step = stepErrorPulse(pulse.current, { error: errorText, running, now: Date.now() })
-  pulse.current = step.pulse
-  const failed = step.failed
-  // Nothing in DSH changes when a pulse expires, so nothing would re-render and
-  // the mark would sit there until the next unrelated update. One timer, armed
-  // only while the mark is up, closes it.
-  const [, retick] = useState(0)
-  useEffect(() => {
-    if (!failed) return undefined
-    const left = ERROR_HOLD_MS - (Date.now() - (pulse.current.started ?? 0))
-    const timer = setTimeout(() => retick((n) => n + 1), Math.max(50, left))
-    return () => {
-      clearTimeout(timer)
-    }
-  }, [failed, errorText])
-  const activity = useMemo(
-    () => activityOf({ running, toolName, streaming, pending, compacting, failed }),
-    [running, toolName, streaming, pending, compacting, failed],
-  )
+function InlineEntry(props: InlineEntryProps): ReactElement | null {
+  const { store, t, useSessions } = props
+  const { activity, turn } = useSessionActivity(props)
   const { config } = useWhaleSnapshot(store)
   const match = useMemo(() => makeStatusMatcher(t), [t])
+  const onFound = useCallback(
+    (kind: StatusRowKind) => {
+      store.markClassicRowHost(kind === 'legacy' ? 'native' : 'absent')
+    },
+    [store],
+  )
+  // Only a host whose session list names no current session (0.1.7) leaves
+  // the Dock to this entry; on 0.1.5 the Dock entry publishes for itself, and
+  // an `idle` written here would sit on top of a turn that is still running.
+  const dockFollowsThis = useSessions((list: SessionListState) => !('current' in list))
+  const followed = useRef(dockFollowsThis)
+  followed.current = dockFollowsThis
 
   useEffect(() => {
     store.setState(activity.state)
   }, [store, activity])
+  // Leaving the session must not leave the Dock wearing its last state.
+  useEffect(
+    () => () => {
+      if (followed.current) store.setState('idle')
+    },
+    [store],
+  )
 
   // `error` is allowed through even though DSH removes its status row when the
   // turn stops: the anchor fails quiet with nothing to attach to, and the Dock
   // — which is always there — is where a failed turn actually gets seen.
   if (!config.inlineEnabled || activity.state === 'idle') return null
   return createElement(InlineWhaleHost, {
+    // One host per turn: a retry that starts inside an error pulse never
+    // passes through idle, and would otherwise skip its breach.
+    key: turn,
     store,
     activity,
     word: statusWordFor(activity, t),
     match,
+    ...(config.classicStatus ? { claim: LEGACY_ONLY } : {}),
+    onFound,
+  })
+}
+
+/**
+ * Classic entry: the plugin's own blue running-turn row above the composer,
+ * only when asked for, and only on a DSH that no longer draws one itself.
+ *
+ * It outlives the turn by exactly as long as the error pulse does, which is
+ * the one place a failed turn gets a word beside the composer rather than
+ * only on the Dock.
+ * @param props - the slot's owner share plus the shared store.
+ * @returns the classic row, or nothing.
+ */
+function ClassicEntry(props: ClassicEntryProps): ReactElement | null {
+  const { store, t } = props
+  const { activity, running, turn, turnStart } = useSessionActivity(props)
+  const { config, classicRowHost } = useWhaleSnapshot(store)
+  const formatClock = useCallback((ms: number) => formatClassicClock(ms, t), [t])
+  const wanted = config.inlineEnabled && config.classicStatus
+  // A page with history already shows which DSH this is; a fresh one waits for
+  // the inline anchor's verdict on the first turn. Drawing on a guess would
+  // put a second blue row under DSH 0.1.5's own for the length of a turn.
+  useEffect(() => {
+    if (!wanted || classicRowHost !== 'unknown') return
+    if (probeStatusShape(document) === 'process') store.markClassicRowHost('absent')
+  }, [store, wanted, classicRowHost, activity.state])
+  if (!wanted || classicRowHost !== 'absent' || activity.state === 'idle') return null
+  return createElement(ClassicWhaleHost, {
+    key: turn,
+    store,
+    activity,
+    word: statusWordFor(activity, t),
+    fallbackWord: t('status.thinking'),
+    turnStart,
+    running,
+    formatClock,
   })
 }
 
@@ -233,10 +240,15 @@ function InlineEntry({
  * @returns the dock, or nothing when the user switched it off.
  */
 function DockEntry({ useSessions, store, t }: DockEntryProps): ReactElement | null {
-  const state = useSessions(stateOfSessionList)
+  // DSH 0.1.5's list names the selected session; 0.1.7's does not ("navigation
+  // belongs to view owners"), and reading it there would pin the Dock to idle
+  // over whatever the session entry publishes. Without `current`, stay quiet.
+  const state = useSessions((list: SessionListState) =>
+    'current' in list ? stateOfSessionList(list as unknown as SessionListFacts) : null,
+  )
   const { config } = useWhaleSnapshot(store)
   useEffect(() => {
-    store.setState(state)
+    if (state !== null) store.setState(state)
   }, [store, state])
   if (!config.dockEnabled) return null
   return createElement(WhaleDockHost, { store, t })
@@ -269,6 +281,21 @@ export function apply(ctx: Context): () => void {
     ),
   )
 
+  const stopClassic = ctx.slots.inject('conversation.input.dock', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.dock',
+        id: 'whale-buddy-classic',
+        // Last in the dock, so the row sits directly on top of the composer
+        // card, where DSH's own row used to end up.
+        order: 100,
+        locale: NS,
+        inject: () => ({ store, t }),
+      },
+      ClassicEntry,
+    ),
+  )
+
   const stopDock = ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register(
       {
@@ -284,6 +311,7 @@ export function apply(ctx: Context): () => void {
 
   return () => {
     stopDock()
+    stopClassic()
     stopInline()
     store.dispose()
     removeCss()
@@ -309,8 +337,20 @@ export {
   stateOfSessionList,
   stateOfStatusText,
 } from './integration/thinking-state.js'
-export { attachStatusAnchor, STATUS_HOST_ATTR } from './integration/status-anchor.js'
+export {
+  attachStatusAnchor,
+  probeStatusShape,
+  STATUS_HOST_ATTR,
+  STATUS_KIND_ATTR,
+} from './integration/status-anchor.js'
 export { mountStatusWhale } from './surfaces/inline-status.js'
+export { useSessionActivity } from './integration/session-activity.js'
+export {
+  classicSeat,
+  formatClassicClock,
+  CLASSIC_ROW_ATTR,
+  CLASSIC_CLOCK_AFTER_MS,
+} from './surfaces/classic-status.js'
 export { statusWordFor } from './locales.js'
 export { rigTransforms, isPoseSane, limitsFor, bleedFor, unitsPerPixel } from './whale/rig.js'
 export {

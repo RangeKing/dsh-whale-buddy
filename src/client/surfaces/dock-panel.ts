@@ -2,7 +2,7 @@
  * The Whale Dock's expanded content.
  *
  * Deliberately small for V0.1: a larger live whale, the semantic state in
- * words, and the two settings the implementation actually honours. No task
+ * words, and the three settings the implementation actually honours. No task
  * list, no approvals, no session switching.
  *
  * The "independent community plugin" line that used to sit at the bottom was
@@ -28,11 +28,15 @@ export interface DockPanelOptions {
   readonly state: WhaleSemanticState
   readonly motion: MotionMode
   readonly inlineEnabled: boolean
+  /** Whether the classic blue status row is on; defaults to off. */
+  readonly classicStatus?: boolean
   readonly random?: RandomSource
   /** Called when the user asks to close the panel. */
   readonly onClose: () => void
   /** Called when the inline-whale toggle changes. */
   readonly onInlineEnabled: (enabled: boolean) => void
+  /** Called when the classic-row toggle changes. */
+  readonly onClassicStatus?: (enabled: boolean) => void
   /** Called when the motion mode changes. */
   readonly onMotion: (motion: MotionMode) => void
 }
@@ -52,6 +56,7 @@ export interface DockPanel {
   /** Play a breach in the panel's larger preview. */
   leap(): void
   setInlineEnabled(enabled: boolean): void
+  setClassicStatus(enabled: boolean): void
   /** Re-read every label after a locale change. */
   retranslate(): void
   destroy(): void
@@ -112,6 +117,21 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   inlineRow.appendChild(inlineLabel)
   inlineRow.appendChild(inlineToggle)
 
+  const classicRow = doc.createElement('div')
+  classicRow.className = 'wb-dock__row'
+  const classicLabel = doc.createElement('label')
+  const classicToggle = doc.createElement('input')
+  classicToggle.type = 'checkbox'
+  classicToggle.id = 'wb-dock-classic'
+  classicToggle.checked = options.classicStatus ?? false
+  classicLabel.htmlFor = classicToggle.id
+  classicLabel.textContent = t('control.classic')
+  classicToggle.addEventListener('change', () => {
+    options.onClassicStatus?.(classicToggle.checked)
+  })
+  classicRow.appendChild(classicLabel)
+  classicRow.appendChild(classicToggle)
+
   const motionRow = doc.createElement('div')
   motionRow.className = 'wb-dock__row'
   const motionLabel = doc.createElement('label')
@@ -135,6 +155,7 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   motionRow.appendChild(motionSelect)
 
   controls.appendChild(inlineRow)
+  controls.appendChild(classicRow)
   controls.appendChild(motionRow)
 
   element.appendChild(head)
@@ -179,10 +200,14 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
     setInlineEnabled(enabled) {
       inlineToggle.checked = enabled
     },
+    setClassicStatus(enabled) {
+      classicToggle.checked = enabled
+    },
     retranslate() {
       title.textContent = t('dock.title')
       close.setAttribute('aria-label', t('dock.close'))
       inlineLabel.textContent = t('control.inline')
+      classicLabel.textContent = t('control.classic')
       motionLabel.textContent = t('control.motion')
       const options_ = motionSelect.options
       for (let i = 0; i < MOTION_KEYS.length; i++) {

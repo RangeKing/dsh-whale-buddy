@@ -17,7 +17,11 @@
  * `mountStatusWhale`, and the demo mounts the identical code against a stand-in
  * status row with no React at all, so what is reviewed visually is what ships.
  */
-import { attachStatusAnchor, type StatusAnchor } from '../integration/status-anchor.js'
+import {
+  attachStatusAnchor,
+  type StatusAnchor,
+  type StatusRowKind,
+} from '../integration/status-anchor.js'
 import { activityTag } from '../integration/thinking-state.js'
 import { mountWhale, type WhaleView } from '../whale/view.js'
 import {
@@ -40,11 +44,29 @@ export const MIN_WORD_MS = 700
 /** Optical gap between the mark and DSH's word, CSS px. */
 const GAP_PX = 5
 
+/**
+ * Builds the row the whale lives in, given the callback that draws it.
+ *
+ * Normally DSH's own row, through `attachStatusAnchor`. The classic-row option
+ * substitutes a row the plugin draws itself; everything above the seat — the
+ * word hold, the once-per-turn breach, the rebuild on re-render — is the same
+ * code either way.
+ */
+export type StatusSeat = (render: (host: HTMLElement) => void) => StatusAnchor
+
 /** Mount options for the anchored inline whale. */
 export interface InlineStatusOptions {
   readonly document: Document
-  /** Recognises DSH's running-turn label. */
-  readonly match: (text: string) => boolean
+  /** Recognises DSH's running-turn label. Unused when {@link seat} is given. */
+  readonly match?: (text: string) => boolean
+  /** Where to look for DSH's row; see `StatusAnchorOptions.scope`. */
+  readonly scope?: Element
+  /** Which of DSH's row shapes to take; see `StatusAnchorOptions.claim`. */
+  readonly claim?: (kind: StatusRowKind) => boolean
+  /** Told the shape of every DSH row found; see `StatusAnchorOptions.onFound`. */
+  readonly onFound?: (kind: StatusRowKind) => void
+  /** A row other than DSH's to live in. */
+  readonly seat?: StatusSeat
   /** Whale width in CSS pixels. */
   readonly size: number
   readonly motion: MotionMode
@@ -104,30 +126,37 @@ export function mountStatusWhale(options: InlineStatusOptions): InlineStatusWhal
     pending = null
   }
 
-  const anchor: StatusAnchor = attachStatusAnchor({
-    document: options.document,
-    match: options.match,
-    render: (host) => {
-      view?.destroy()
-      view = mountWhale({
-        host,
-        size,
-        state: activity.state,
-        motion,
-        // The turn has just begun — that is the whole trigger. This surface
-        // exists only while one is running, so mounting *is* the event, and
-        // nothing has to watch for a transition to notice it.
-        leapOnMount: !leapt,
-        ...(options.random === undefined ? {} : { random: options.random }),
-      })
-      leapt = true
-      // The view is built from the state alone; the task has to be handed over
-      // separately or a remount mid-turn drops back to the generic prop.
-      view.setActivity(activity)
-      // Keeps DSH's status row exactly the height it was: the whale overflows
-      // the row rather than growing it.
-      view.fitToMark(GAP_PX)
-    },
+  const seat: StatusSeat =
+    options.seat ??
+    ((render) =>
+      attachStatusAnchor({
+        document: options.document,
+        match: options.match ?? (() => false),
+        render,
+        ...(options.scope === undefined ? {} : { scope: options.scope }),
+        ...(options.claim === undefined ? {} : { claim: options.claim }),
+        ...(options.onFound === undefined ? {} : { onFound: options.onFound }),
+      }))
+  const anchor: StatusAnchor = seat((host) => {
+    view?.destroy()
+    view = mountWhale({
+      host,
+      size,
+      state: activity.state,
+      motion,
+      // The turn has just begun — that is the whole trigger. This surface
+      // exists only while one is running, so mounting *is* the event, and
+      // nothing has to watch for a transition to notice it.
+      leapOnMount: !leapt,
+      ...(options.random === undefined ? {} : { random: options.random }),
+    })
+    leapt = true
+    // The view is built from the state alone; the task has to be handed over
+    // separately or a remount mid-turn drops back to the generic prop.
+    view.setActivity(activity)
+    // Keeps DSH's status row exactly the height it was: the whale overflows
+    // the row rather than growing it.
+    view.fitToMark(GAP_PX)
   })
   anchor.setTag(activityTag(activity))
   anchor.setWord(options.word)
@@ -173,6 +202,7 @@ export function mountStatusWhale(options: InlineStatusOptions): InlineStatusWhal
     setMotion(next) {
       motion = next
       view?.setMotion(next)
+      anchor.setMotion?.(next)
     },
     setSize(next) {
       size = next

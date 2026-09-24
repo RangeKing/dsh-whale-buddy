@@ -20,6 +20,12 @@ export interface WhaleBuddyConfig {
   enabled: boolean
   /** The whale beside the model's thinking state. */
   inlineEnabled: boolean
+  /**
+   * Draw DSH 0.1.5's blue "深度求索中..." row above the composer, with the
+   * inline whale in it, instead of riding DSH 0.1.7's grey fold header at the
+   * top of the turn. No effect on a DSH that still draws that row itself.
+   */
+  classicStatus: boolean
   /** The right-edge companion dock. */
   dockEnabled: boolean
   /** Inline whale width in CSS pixels. The Dock's whale is fixed separately. */
@@ -38,6 +44,7 @@ export interface WhaleBuddyConfig {
 export const DEFAULT_CONFIG: Readonly<WhaleBuddyConfig> = Object.freeze({
   enabled: true,
   inlineEnabled: true,
+  classicStatus: false,
   dockEnabled: true,
   size: 26,
   motion: 'full' as MotionMode,
@@ -97,6 +104,7 @@ export function loadConfig(storage?: ConfigStorage): WhaleBuddyConfig {
   return {
     enabled: readBoolean(store, 'enabled', DEFAULT_CONFIG.enabled),
     inlineEnabled: readBoolean(store, 'inlineEnabled', DEFAULT_CONFIG.inlineEnabled),
+    classicStatus: readBoolean(store, 'classicStatus', DEFAULT_CONFIG.classicStatus),
     dockEnabled: readBoolean(store, 'dockEnabled', DEFAULT_CONFIG.dockEnabled),
     size:
       Number.isFinite(rawSize) && rawSize >= MIN_SIZE && rawSize <= MAX_SIZE

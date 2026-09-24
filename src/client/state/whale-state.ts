@@ -14,7 +14,19 @@ import type { WhaleSemanticState } from '../whale/types.js'
 export interface WhaleSnapshot {
   readonly state: WhaleSemanticState
   readonly config: Readonly<WhaleBuddyConfig>
+  /**
+   * Whether this DSH draws the blue running-turn row itself: `native` (0.1.5,
+   * 0.1.6), `absent` (0.1.7), or `unknown` until a row or header has been
+   * seen. The classic-row option draws only on `absent` — never on a guess —
+   * so a DSH that still has the row never shows two. Latched: the first
+   * verdict stands for the page, because a DSH build does not change shape
+   * while it is open.
+   */
+  readonly classicRowHost: ClassicRowHost
 }
+
+/** See {@link WhaleSnapshot.classicRowHost}. */
+export type ClassicRowHost = 'unknown' | 'native' | 'absent'
 
 /** Change listener. */
 export type WhaleListener = (snapshot: WhaleSnapshot) => void
@@ -30,7 +42,7 @@ export class WhaleStateStore {
    * @param config - initial configuration; defaults to the persisted one.
    */
   constructor(config: WhaleBuddyConfig = loadConfig()) {
-    this.snapshot = { state: 'idle', config }
+    this.snapshot = { state: 'idle', config, classicRowHost: 'unknown' }
   }
 
   /** The current state and configuration. */
@@ -57,6 +69,16 @@ export class WhaleStateStore {
   setState(state: WhaleSemanticState): void {
     if (state === this.snapshot.state) return
     this.snapshot = { ...this.snapshot, state }
+    this.emit()
+  }
+
+  /**
+   * Record whether DSH draws the classic row itself; the first verdict wins.
+   * @param host - `native` when DSH's own row was seen, `absent` for a 0.1.7 header.
+   */
+  markClassicRowHost(host: Exclude<ClassicRowHost, 'unknown'>): void {
+    if (this.snapshot.classicRowHost !== 'unknown') return
+    this.snapshot = { ...this.snapshot, classicRowHost: host }
     this.emit()
   }
 

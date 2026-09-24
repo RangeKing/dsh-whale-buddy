@@ -111,6 +111,65 @@ body[data-ds-dark-theme] {
 }
 .wb-status svg { display: block; }
 /*
+ * DSH 0.1.7 moved the running label into the turn's fold header, which paints
+ * ordinary grey text and brightens it on hover. There the whale simply wears
+ * the header's own ink, hover included.
+ */
+.wb-status[data-whale-buddy-kind="process"] {
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+}
+/*
+ * The classic row: DSH 0.1.5's running-turn label, re-drawn by the plugin in
+ * the composer's dock when the classic option is on. Same type, same blue,
+ * same sweep, same late clock; the tokens are DSH's, the hex behind each is
+ * the value DSH ships for it, for a host that renames one.
+ */
+.wb-classic {
+  --wb-deep-500: var(--dsw-static-deepseek-500, #4176e6);
+  --wb-deep-200: var(--dsw-static-deepseek-200, #d3e2ff);
+  display: flex;
+  align-items: center;
+  height: calc(26px + var(--dsh-content-font-delta, 0px));
+  min-width: 0;
+  pointer-events: none;
+}
+.wb-classic .wb-status {
+  color: var(--wb-deep-500);
+  opacity: 1;
+}
+.wb-classic__word {
+  font: var(--dsw-font-s-strong-14, 600 14px/22px system-ui, sans-serif);
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(22px + var(--dsh-content-font-delta, 0px));
+  white-space: nowrap;
+  background: linear-gradient(90deg, var(--wb-deep-500) 0%, var(--wb-deep-500) 40%, var(--wb-deep-200) 50%, var(--wb-deep-500) 60%, var(--wb-deep-500) 100%);
+  background-position: 100% 0;
+  background-size: 250% 100%;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: wb-classic-sweep 1.8s linear infinite;
+}
+.wb-classic__clock {
+  font: var(--dsw-font-xs-13, 400 13px/20px system-ui, sans-serif);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--dsw-alias-label-caption, var(--wb-text-4));
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.wb-classic__clock[hidden] { display: none; }
+.wb-classic[data-still] .wb-classic__word {
+  background-position: 0 0;
+  background-size: 100% 100%;
+  animation: none;
+}
+@keyframes wb-classic-sweep { to { background-position: 0 0; } }
+/*
  * --wb-dock-top is the drag position, a fraction of the usable track. The
  * element is placed by top alone — no translate — so that dragging changes
  * exactly one property and never fights the shell's own width/height
@@ -336,6 +395,11 @@ body[data-ds-dark-theme] {
   color: inherit;
 }
 @media (prefers-reduced-motion: reduce) {
+  .wb-classic__word {
+    background-position: 0 0;
+    background-size: 100% 100%;
+    animation: none;
+  }
   .wb-dock__shell,
   .wb-dock__button,
   .wb-dock__mark,
