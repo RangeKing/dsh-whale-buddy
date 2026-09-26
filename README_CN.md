@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="许可：BSD-3-Clause" src="https://img.shields.io/badge/licence-BSD--3--Clause-2563eb?style=flat-square">
-  <img alt="支持版本：DSH 0.1.5-rc.2" src="https://img.shields.io/badge/DSH-0.1.5--rc.2-0ea5e9?style=flat-square">
+  <img alt="支持版本：DSH 0.1.5 – 0.1.7-rc.1" src="https://img.shields.io/badge/DSH-0.1.5%20%E2%80%93%200.1.7--rc.1-0ea5e9?style=flat-square">
   <img alt="测试：138 通过" src="https://img.shields.io/badge/tests-138%20passing-16a34a?style=flat-square">
   <img alt="运行时依赖：0" src="https://img.shields.io/badge/runtime%20deps-0-8b5cf6?style=flat-square">
 </p>
@@ -66,6 +66,10 @@
 
 - **视觉零抖动**：采用负边距计算，跃水弧线的空间溢出完全在视觉外层展开，对话框与文字布局全程稳如磐石。
 - **色彩自然契合**：自动读取原生界面的渐变停靠点颜色，明暗两套主题均能与文字排版天然浑成。
+- **兼容两种 DSH 状态标签**：
+  - **DSH 0.1.7** 取消了蓝色的“深度求索中...”行，运行状态改由回合顶部的灰色折叠标题承载（“深度求索中，用时12秒”）。鲸鱼随之进入该标题并沿用其灰色；只替换前面的文字（`读取文件中，用时12秒`），DSH 自带的计时照常走动。
+  - **DSH 0.1.5** 仍绘制蓝色行，鲸鱼照旧嵌入其中。
+- **经典“深度求索中”开关**（Dock 面板 → *经典“深度求索中”*，默认关闭）：在 DSH 0.1.7 上，于输入框正上方重新绘制旧版蓝色状态行——相同字号、相同渐变流光、运行 15 秒后显示计时——鲸鱼位于文字左侧，DSH 的灰色折叠标题保持原样。与默认方式不同，这一行会占用版面：每轮出现、消失各一次，与 DSH 0.1.5 自带的那一行一致。在 DSH 0.1.5 上该开关不起作用，因为原生行本来就在。
 
 ### 2. 鲸鱼侧边交互坞 (Whale Dock)
 
@@ -109,7 +113,7 @@
 // ~/.dsh/profiles/web/package.json
 {
   "dependencies": {
-    "dsh-whale-buddy": "link:/path/to/dsh-whale-buddy"
+    "dsh-whale-buddy": "^0.2.1"
   },
   "dsh": {
     "profile": {
@@ -123,25 +127,28 @@
 }
 ```
 
-### 2. 编译打包
+### 2. 安装插件
 
 ```bash
-npm ci
-npm run build
+cd ~/.dsh/profiles/web
+npm install dsh-whale-buddy@0.2.1
 ```
 
-**环境要求：** DeepSeek Harness `0.1.5-rc.2` 或更高兼容版本（需具备 `shell.overlay` 与 `conversation.input.overlay` 插槽）。
+**环境要求：** DeepSeek Harness `0.1.5-rc.2` 至 `0.1.7-rc.1`（需具备 `shell.overlay` 与 `conversation.input.overlay` 插槽；经典状态行另需 `conversation.input.dock`）。
 
 ---
 
 ## ⚙️ 个性化配置
 
-可通过 Whale Dock 伴随面板直观调节，或直接通过 `localStorage` 配置：
+侧边面板保留实时状态和三个设置：对话鲸鱼、经典状态栏、动效。面板跟随 DSH 的深浅主题；关闭对话鲸鱼时，经典状态栏选项暂不可用，原有选择会保留。
+
+其他配置可通过 `localStorage` 调整：
 
 | `localStorage` 键 | 候选值 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `dsh-whale-buddy.enabled` | `1` / `0` | `1` | 全局总开关 |
 | `dsh-whale-buddy.inlineEnabled` | `1` / `0` | `1` | 启用 / 禁用行内状态鲸鱼 |
+| `dsh-whale-buddy.classicStatus` | `1` / `0` | `0` | 在输入框上方绘制 DSH 0.1.5 的蓝色“深度求索中...”行（DSH 0.1.7 起生效） |
 | `dsh-whale-buddy.dockEnabled` | `1` / `0` | `1` | 启用 / 禁用侧边 Whale Dock |
 | `dsh-whale-buddy.size` | `18` – `36` | `26` | 行内鲸鱼尺寸 (px) |
 | `dsh-whale-buddy.motion` | `full` / `subtle` / `static` | `full` | 动效强度档位 |
@@ -157,7 +164,7 @@ npm run build
 - **亚像素级尺度换算**：所有物理位移与振幅均基于目标 CSS 像素直接换算，而非依赖相对矢量单位，确保在高分屏缩放下的细腻锐利。
 
 ### 2. 无损 DOM 注入与零回流机制
-- **引用身份追踪（Reference Identity Tracking）**：通过 `role="status"` 定位后直接绑定 DOM 元素对象引用，彻底规避因文字变化引起的循环二次匹配。
+- **引用身份追踪（Reference Identity Tracking）**：通过 `role="status"` 定位后直接绑定 DOM 元素对象引用，彻底规避因文字变化引起的循环二次匹配。在 DSH 0.1.7 上，`role="status"` 元素是一个视觉隐藏的播报节点；锚点顺着它找到紧随其后的 `[data-turn-process]` 标题，且从不改写播报节点本身。
 - **负边距视觉出血 (`fitToMark()`)**：将跃水动画所需的垂直空间转换为外部溢出渲染，元素在文档流中保持严格恒定的 26 px 尺寸，杜绝会话重排。
 - **纯净生命周期**：卸载或会话切换时，即刻断开所有 MutationObserver 并注销动画循环，完整复原原生 DOM 节点。
 
@@ -233,7 +240,8 @@ npm run film        # 录制完整动效展示视频
 
 ## 🧩 兼容性与降级设计
 
-- **基准验证版本**：`@deepseek-ai/dsh@0.1.5-rc.1`（客户端包 `0.1.5-rc.2`）。
+- **基准验证版本**：`@deepseek-ai/dsh@0.1.5-rc.1`（客户端包 `0.1.5-rc.2`，已在运行中的应用里实测）；客户端包 `0.1.7-rc.1`（类型检查通过，DOM 结构取自已发布的 `ui-chat` / `ui-conversation` 产物，尚未在运行中的 0.1.7 应用里实测）。
+- **DSH 0.1.7 信号变化**：`useSessionPendingInteraction` 已移除（等待态改读 `useSessionStatus`）；会话列表不再给出当前会话，Dock 改由会话级插槽条目驱动。两者都按宿主自动选择，0.1.5 仍可正常使用。
 - **平稳降级保证**：若未来 DSH 调整底层插槽命名或重构状态行，插件将安静跳过挂载，绝不影响正常的对话使用。
 - **色彩自适应**：优先跟随界面 `--dsw-alias-*` 主题变量，同时内置多套高对比度备用配色方案。
 
@@ -243,6 +251,7 @@ npm run film        # 录制完整动效展示视频
 
 - **架构沿革**：感谢 [dsh-thought-buddy](https://github.com/dsh-plugins/dsh-thought-buddy) (BSD-3-Clause) 提供的模块加载隔离理念、定步长弹簧时间模型以及产物测试方案。
 - **交互灵感**：感谢 [dsh-notch](https://github.com/aa2246740/dsh-notch) (MIT) 带来的边缘吸附连续曲面交互设计思想。
+- **经典状态行样式**：独立重现了 DSH 0.1.5 运行中标签的样式（`@deepseek-ai/dsh-client-ui-chat`，MIT，© DeepSeek），使用 DSH 自身的设计变量。
 - **图形版权**：标志图形归 DeepSeek 官方所有，提取自 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（`FishLogo.tsx`），未作任何矢量坐标篡改。
 
 ---

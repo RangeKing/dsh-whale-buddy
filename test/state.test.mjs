@@ -366,3 +366,56 @@ test('the error mark is an event, not a latched field', () => {
   assert.equal(step.failed, true, 'a second failure was swallowed')
   harness.close()
 })
+
+/**
+ * The session hook against both DSH shapes. The selector hooks are stand-ins
+ * that apply the selector to a fixed snapshot, which is all DSH's are.
+ */
+function sessionProps({ status, legacyPending, running = true, turnTimings } = {}) {
+  const hook = (snapshot) => (select) => select(snapshot)
+  const props = {
+    sessionId: 's1',
+    useSession: hook({ running, awaitingFirstTurn: false, lastAgentError: null, promptError: null }),
+    useChat: hook({
+      legacy: { runningCalls: [], partial: null, turnTimings: turnTimings ?? new Map() },
+    }),
+  }
+  if (status !== undefined) props.useSessionStatus = hook(status)
+  if (legacyPending !== undefined) props.useSessionPendingInteraction = hook(legacyPending)
+  return props
+}
+
+test('waiting is read from DSH 0.1.7 session status', () => {
+  const harness = createHarness()
+  const { useSessionActivity } = harness.client
+  const waiting = new Map([['s1', { running: true, pendingInteraction: { key: 'k', kind: 'approval', sessionId: 's1' }, completionUnread: false }]])
+  assert.equal(useSessionActivity(sessionProps({ status: waiting })).activity.state, 'waiting')
+  const clear = new Map([['s1', { running: true, pendingInteraction: undefined, completionUnread: false }]])
+  assert.equal(useSessionActivity(sessionProps({ status: clear })).activity.state, 'thinking')
+  const other = new Map([['s2', { running: true, pendingInteraction: { key: 'k', kind: 'approval', sessionId: 's2' }, completionUnread: false }]])
+  assert.equal(useSessionActivity(sessionProps({ status: other })).activity.state, 'thinking')
+  harness.close()
+})
+
+test('waiting is still read from DSH 0.1.5 pending interactions', () => {
+  const harness = createHarness()
+  const { useSessionActivity } = harness.client
+  const pending = new Map([['s1', { key: 'k' }]])
+  assert.equal(useSessionActivity(sessionProps({ legacyPending: pending })).activity.state, 'waiting')
+  assert.equal(useSessionActivity(sessionProps({ legacyPending: new Map() })).activity.state, 'thinking')
+  // A host with neither hook is not an error; it just never waits.
+  assert.equal(useSessionActivity(sessionProps()).activity.state, 'thinking')
+  harness.close()
+})
+
+test('the running turn’s start time comes from DSH’s own turn timings', () => {
+  const harness = createHarness()
+  const { useSessionActivity } = harness.client
+  const turnTimings = new Map([
+    [1, { startTime: 1000, endTime: 5000 }],
+    [2, { startTime: 9000 }],
+  ])
+  assert.equal(useSessionActivity(sessionProps({ turnTimings })).turnStart, 9000)
+  assert.equal(useSessionActivity(sessionProps()).turnStart, null)
+  harness.close()
+})

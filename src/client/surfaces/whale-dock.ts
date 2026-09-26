@@ -43,12 +43,15 @@ export interface WhaleDockOptions {
   readonly state: WhaleSemanticState
   readonly motion: MotionMode
   readonly inlineEnabled: boolean
+  /** Whether the classic blue status row is switched on; defaults to off. */
+  readonly classicStatus?: boolean
   /** Where the Dock sits on its edge, 0 (top) to 1 (bottom). */
   readonly dockTop?: number
   /** Copy; defaults to the built-in English dictionary. */
   readonly t?: Translate
   readonly random?: RandomSource
   readonly onInlineEnabled?: (enabled: boolean) => void
+  readonly onClassicStatus?: (enabled: boolean) => void
   readonly onMotion?: (motion: MotionMode) => void
   /** Fired whenever the panel opens or closes. */
   readonly onToggle?: (expanded: boolean) => void
@@ -66,6 +69,7 @@ export interface WhaleDock {
   setState(state: WhaleSemanticState): void
   setMotion(motion: MotionMode): void
   setInlineEnabled(enabled: boolean): void
+  setClassicStatus(enabled: boolean): void
   /** Move the Dock along its edge from outside a drag. */
   setDockTop(top: number): void
   retranslate(t: Translate): void
@@ -133,6 +137,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
   let state = options.state
   let motion = options.motion
   let inlineEnabled = options.inlineEnabled
+  let classicStatus = options.classicStatus ?? false
   let expanded = false
   let panel: DockPanel | null = null
   let generation = 0
@@ -230,6 +235,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       state,
       motion,
       inlineEnabled,
+      classicStatus,
       ...(options.random === undefined ? {} : { random: options.random }),
       onClose: () => {
         setExpanded(false)
@@ -238,6 +244,10 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       onInlineEnabled: (value) => {
         inlineEnabled = value
         options.onInlineEnabled?.(value)
+      },
+      onClassicStatus: (value) => {
+        classicStatus = value
+        options.onClassicStatus?.(value)
       },
       onMotion: (value) => {
         motion = value
@@ -269,7 +279,12 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       panel.setState(state)
       panel.setMotion(motion)
       panel.setInlineEnabled(inlineEnabled)
+      panel.setClassicStatus(classicStatus)
       const target = measureExpanded()
+      // The same fractional edge position must fit the expanded surface too.
+      // Keeping the 42 px travel track here strands the settings below the
+      // viewport when the Dock has been dragged near the bottom.
+      element.style.setProperty('--wb-dock-size', `${target}px`)
       const hadFocus = doc.activeElement === button
       shell.dataset.expanded = 'true'
       animateShell(true, ticket, target)
@@ -280,6 +295,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       return
     }
 
+    element.style.setProperty('--wb-dock-size', `${DOCK_BUTTON}px`)
     animateShell(false, ticket, DOCK_BUTTON)
     options.onToggle?.(false)
     const finish = (): void => {
@@ -354,6 +370,10 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
     setInlineEnabled(enabled) {
       inlineEnabled = enabled
       panel?.setInlineEnabled(enabled)
+    },
+    setClassicStatus(enabled) {
+      classicStatus = enabled
+      panel?.setClassicStatus(enabled)
     },
     setDockTop(top) {
       drag?.set(top)

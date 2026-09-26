@@ -49,6 +49,21 @@
     background-image: linear-gradient(90deg,
       #4176e6 0%, #4176e6 40%, #d3e2ff 50%, #4176e6 60%, #4176e6 100%);
   }
+  /*
+   * DSH 0.1.7's turn fold header, copied out of ui-chat 0.1.7-rc.1: a hidden
+   * announcement, then a full-width button with a grey 13 px label that
+   * carries its own clock and a hairline under it.
+   */
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .foldhead {
+    box-sizing: border-box; display: flex; align-items: center; width: 100%;
+    height: 33px; padding: 0 0 8px; margin: 6px 0 0; border: none;
+    border-bottom: .5px solid rgba(127,140,155,.28); background: none;
+    color: var(--dsw-alias-label-tertiary, #81858c); text-align: left; font: inherit;
+  }
+  .foldhead:hover { color: var(--dsw-alias-label-primary, #0f1115); }
+  .foldhead span { font-size: 13px; line-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .classic-dock { display: flex; flex-direction: column; gap: 6px; }
   .card {
     position: relative; border-radius: 22px; padding: 18px 14px 26px;
     border: 1px solid rgba(127,140,155,.28); background: rgba(127,140,155,.07);
@@ -120,9 +135,9 @@
 
 <main>
   <section>
-    <h2>Status whale — inside DSH's own running-turn row</h2>
+    <h2>Status whale — DSH 0.1.5 running-turn row</h2>
     <!-- Stand-in for the transcript's status line and the composer below it. -->
-    <div class="seat">
+    <div class="seat" id="seat-015">
       <div class="transcript">
         <p>…the last lines of the conversation run right up to the composer.</p>
         <p class="statusline" role="status">深度求索中...</p>
@@ -141,6 +156,43 @@
       <code>idle</code> the surface stays mounted here so the calm profile can be
       reviewed in place; in DSH the slot entry simply unmounts, and the label you
       see is DSH's own, restored.
+    </p>
+  </section>
+
+  <section>
+    <h2>Status whale — DSH 0.1.7 turn fold header</h2>
+    <div class="seat" id="seat-017">
+      <div class="transcript">
+        <p>…the user's prompt, and then the running turn's header:</p>
+        <span class="vh" role="status" aria-live="polite" id="announce-017">深度求索中</span>
+        <button type="button" class="foldhead" data-turn-process="4"><span id="label-017">深度求索中，用时1秒</span></button>
+        <p>…the turn's process and answer stream in below.</p>
+      </div>
+    </div>
+    <p style="font-size:11px;opacity:.6">
+      0.1.7 removed the blue row. The whale goes into the header and wears its
+      grey; only the leading words are swapped, so DSH's clock — rewritten by
+      React every second, simulated here — carries on.
+    </p>
+  </section>
+
+  <section>
+    <h2>Classic row — the plugin's own, above the composer</h2>
+    <div class="seat">
+      <div class="transcript">
+        <p>…the last lines of the conversation run right up to the composer.</p>
+      </div>
+      <div class="classic-dock">
+        <div id="classic-host"></div>
+        <div class="card">
+          <span class="placeholder">Message DeepSeek…</span>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;opacity:.6">
+      What the <strong>Classic "Deep diving"</strong> option draws on 0.1.7, in
+      the <code>conversation.input.dock</code> slot: 0.1.5's blue sweep, its
+      clock after fifteen seconds, and the whale beside the words.
     </p>
   </section>
 
@@ -218,16 +270,62 @@ function activity() {
   return task === undefined ? { state } : { state, task }
 }
 const state = () => activity().state
+// Read ?locale before anything is mounted, so every surface starts in it.
+const earlyLocale = new URLSearchParams(location.search).get('locale')
+if (earlyLocale !== null) document.getElementById('locale').value = earlyLocale
 let t = api.fallbackTranslate(document.getElementById('locale').value)
 
 const inline = api.mountStatusWhale({
   document,
+  scope: document.getElementById('seat-015'),
   match: api.makeStatusMatcher(t),
   size: 26,
   motion: motion(),
   activity: activity(),
   word: api.statusWordFor(activity(), t),
   random: api.seededRandom(1001),
+})
+
+// DSH 0.1.7: the anchor finds the hidden announcement and takes the header
+// after it. React's once-a-second clock is simulated so the label is live.
+const started017 = Date.now()
+setInterval(() => {
+  const zh = document.getElementById('locale').value === 'zh'
+  const secs = Math.max(1, Math.floor((Date.now() - started017) / 1000))
+  // DSH's own wording, written the way React writes it; the anchor re-applies
+  // the plugin's word on top.
+  document.getElementById('label-017').firstChild.nodeValue =
+    zh ? `深度求索中，用时${secs}秒` : `Deep diving for ${secs}s`
+  const announce = document.getElementById('announce-017')
+  const said = zh ? '深度求索中' : 'Deep diving...'
+  if (announce.textContent !== said) announce.textContent = said
+}, 1000)
+const header017 = api.mountStatusWhale({
+  document,
+  scope: document.getElementById('seat-017'),
+  match: api.makeStatusMatcher(t),
+  size: 26,
+  motion: motion(),
+  activity: activity(),
+  word: api.statusWordFor(activity(), t),
+  random: api.seededRandom(1002),
+})
+
+const classic = api.mountStatusWhale({
+  document,
+  seat: api.classicSeat({
+    document,
+    container: document.getElementById('classic-host'),
+    fallbackWord: t('status.thinking'),
+    startTime: Date.now() - 12_000,
+    formatClock: (ms) => api.formatClassicClock(ms, t),
+    motion: motion(),
+  }),
+  size: 26,
+  motion: motion(),
+  activity: activity(),
+  word: api.statusWordFor(activity(), t),
+  random: api.seededRandom(1003),
 })
 
 const marks = [['size-18',18],['size-22',22],['size-26',26],['size-42',42],['size-64',64],
@@ -257,6 +355,10 @@ function sync() {
   const m = motion()
   inline.setActivity(a, api.statusWordFor(a, t))
   inline.setMotion(m)
+  header017.setActivity(a, api.statusWordFor(a, t))
+  header017.setMotion(m)
+  classic.setActivity(a, api.statusWordFor(a, t))
+  classic.setMotion(m)
   for (const mark of marks) { mark.setState(s); mark.setMotion(m) }
   dock.setState(s)
   dock.setMotion(m)
@@ -324,13 +426,18 @@ if (params.has('reduced')) {
 if (params.has('open')) dock.setExpanded(true)
 if (params.has('leap')) {
   // Replayed on an interval so a screenshot scenario can catch the arc.
-  const replay = () => { inline.view()?.leap(); dock.view.leap(); for (const m of marks) m.leap() }
+  const replay = () => {
+    inline.view()?.leap(); header017.view()?.leap(); classic.view()?.leap()
+    dock.view.leap(); for (const m of marks) m.leap()
+  }
   replay()
   setInterval(replay, 2200)
 }
 
 document.getElementById('leap').addEventListener('click', () => {
   inline.view()?.leap()
+  header017.view()?.leap()
+  classic.view()?.leap()
   dock.view.leap()
   for (const mark of marks) mark.leap()
 })

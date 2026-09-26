@@ -40,7 +40,11 @@ export interface WhaleBuddyDict {
   'status.delegating': string
   'status.compacting': string
   'status.error': string
+  /** Elapsed-time templates for the classic row, as DSH 0.1.5 wrote them. */
+  'clock.seconds': string
+  'clock.minutes': string
   'control.inline': string
+  'control.classic': string
   'control.motion': string
   'motion.full': string
   'motion.subtle': string
@@ -73,7 +77,7 @@ export const en: WhaleBuddyDict = {
   'status.thinking': 'Deep diving...',
   'status.responding': 'Writing...',
   'status.working': 'Working...',
-  'status.waiting': 'Waiting for you...',
+  'status.waiting': 'Waiting on you...',
   'status.reading': 'Reading...',
   'status.editing': 'Editing...',
   'status.running': 'Running...',
@@ -81,7 +85,10 @@ export const en: WhaleBuddyDict = {
   'status.delegating': 'Delegating...',
   'status.compacting': 'Compacting context...',
   'status.error': 'Something went wrong',
+  'clock.seconds': '{seconds}s',
+  'clock.minutes': '{minutes}m {seconds}s',
   'control.inline': 'Inline whale',
+  'control.classic': 'Classic status row',
   'control.motion': 'Motion',
   'motion.full': 'Full',
   'motion.subtle': 'Subtle',
@@ -119,7 +126,10 @@ export const zh: WhaleBuddyDict = {
   'status.delegating': '调度子代理中...',
   'status.compacting': '压缩上下文中...',
   'status.error': '出错了',
-  'control.inline': '对话内小鲸鱼',
+  'clock.seconds': '{seconds}秒',
+  'clock.minutes': '{minutes}分{seconds}秒',
+  'control.inline': '对话鲸鱼',
+  'control.classic': '经典状态栏',
   'control.motion': '动效',
   'motion.full': '完整',
   'motion.subtle': '轻微',

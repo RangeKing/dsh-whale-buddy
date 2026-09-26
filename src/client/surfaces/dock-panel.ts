@@ -2,7 +2,7 @@
  * The Whale Dock's expanded content.
  *
  * Deliberately small for V0.1: a larger live whale, the semantic state in
- * words, and the two settings the implementation actually honours. No task
+ * words, and the three settings the implementation actually honours. No task
  * list, no approvals, no session switching.
  *
  * The "independent community plugin" line that used to sit at the bottom was
@@ -28,11 +28,15 @@ export interface DockPanelOptions {
   readonly state: WhaleSemanticState
   readonly motion: MotionMode
   readonly inlineEnabled: boolean
+  /** Whether the classic blue status row is on; defaults to off. */
+  readonly classicStatus?: boolean
   readonly random?: RandomSource
   /** Called when the user asks to close the panel. */
   readonly onClose: () => void
   /** Called when the inline-whale toggle changes. */
   readonly onInlineEnabled: (enabled: boolean) => void
+  /** Called when the classic-row toggle changes. */
+  readonly onClassicStatus?: (enabled: boolean) => void
   /** Called when the motion mode changes. */
   readonly onMotion: (motion: MotionMode) => void
 }
@@ -41,17 +45,14 @@ export interface DockPanelOptions {
 export interface DockPanel {
   readonly element: HTMLElement
   readonly view: WhaleView
-  /**
-   * The control a caller should focus if it ever needs to move focus into the
-   * panel. The Dock deliberately does not — it leaves focus on its trigger —
-   * but a future surface that opens the panel without a trigger will need it.
-   */
+  /** Receives keyboard focus when the collapsed trigger leaves the layout. */
   readonly initialFocus: HTMLElement
   setState(state: WhaleSemanticState): void
   setMotion(motion: MotionMode): void
   /** Play a breach in the panel's larger preview. */
   leap(): void
   setInlineEnabled(enabled: boolean): void
+  setClassicStatus(enabled: boolean): void
   /** Re-read every label after a locale change. */
   retranslate(): void
   destroy(): void
@@ -102,21 +103,45 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   const inlineLabel = doc.createElement('label')
   const inlineToggle = doc.createElement('input')
   inlineToggle.type = 'checkbox'
+  inlineToggle.className = 'wb-dock__switch'
+  inlineToggle.setAttribute('role', 'switch')
   inlineToggle.id = 'wb-dock-inline'
   inlineToggle.checked = options.inlineEnabled
   inlineLabel.htmlFor = inlineToggle.id
   inlineLabel.textContent = t('control.inline')
   inlineToggle.addEventListener('change', () => {
+    classicToggle.disabled = !inlineToggle.checked
     options.onInlineEnabled(inlineToggle.checked)
   })
   inlineRow.appendChild(inlineLabel)
   inlineRow.appendChild(inlineToggle)
+
+  const classicRow = doc.createElement('div')
+  classicRow.className = 'wb-dock__row'
+  const classicLabel = doc.createElement('label')
+  const classicToggle = doc.createElement('input')
+  classicToggle.type = 'checkbox'
+  classicToggle.className = 'wb-dock__switch'
+  classicToggle.setAttribute('role', 'switch')
+  classicToggle.id = 'wb-dock-classic'
+  classicToggle.checked = options.classicStatus ?? false
+  classicToggle.disabled = !options.inlineEnabled
+  classicLabel.htmlFor = classicToggle.id
+  classicLabel.textContent = t('control.classic')
+  classicToggle.addEventListener('change', () => {
+    options.onClassicStatus?.(classicToggle.checked)
+  })
+  classicRow.appendChild(classicLabel)
+  classicRow.appendChild(classicToggle)
 
   const motionRow = doc.createElement('div')
   motionRow.className = 'wb-dock__row'
   const motionLabel = doc.createElement('label')
   const motionSelect = doc.createElement('select')
   motionSelect.id = 'wb-dock-motion'
+  const motionField = doc.createElement('span')
+  motionField.className = 'wb-dock__select'
+  motionField.appendChild(motionSelect)
   motionLabel.htmlFor = motionSelect.id
   motionLabel.textContent = t('control.motion')
   const MOTION_KEYS = ['full', 'subtle', 'static'] as const
@@ -132,9 +157,10 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
     if (value === 'full' || value === 'subtle' || value === 'static') options.onMotion(value)
   })
   motionRow.appendChild(motionLabel)
-  motionRow.appendChild(motionSelect)
+  motionRow.appendChild(motionField)
 
   controls.appendChild(inlineRow)
+  controls.appendChild(classicRow)
   controls.appendChild(motionRow)
 
   element.appendChild(head)
@@ -178,11 +204,16 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
     },
     setInlineEnabled(enabled) {
       inlineToggle.checked = enabled
+      classicToggle.disabled = !enabled
+    },
+    setClassicStatus(enabled) {
+      classicToggle.checked = enabled
     },
     retranslate() {
       title.textContent = t('dock.title')
       close.setAttribute('aria-label', t('dock.close'))
       inlineLabel.textContent = t('control.inline')
+      classicLabel.textContent = t('control.classic')
       motionLabel.textContent = t('control.motion')
       const options_ = motionSelect.options
       for (let i = 0; i < MOTION_KEYS.length; i++) {
