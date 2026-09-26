@@ -316,7 +316,7 @@ const classic = api.mountStatusWhale({
   seat: api.classicSeat({
     document,
     container: document.getElementById('classic-host'),
-    fallbackWord: t('status.thinking'),
+    fallbackWord: t('classic.word'),
     startTime: Date.now() - 12_000,
     formatClock: (ms) => api.formatClassicClock(ms, t),
     motion: motion(),
@@ -324,7 +324,7 @@ const classic = api.mountStatusWhale({
   size: 26,
   motion: motion(),
   activity: activity(),
-  word: api.statusWordFor(activity(), t),
+  word: t('classic.word'),
   random: api.seededRandom(1003),
 })
 
@@ -357,10 +357,10 @@ function sync() {
   inline.setMotion(m)
   header017.setActivity(a, api.statusWordFor(a, t))
   header017.setMotion(m)
-  classic.setActivity(a, api.statusWordFor(a, t))
+  classic.setActivity(a, t('classic.word'))
   classic.setMotion(m)
   for (const mark of marks) { mark.setState(s); mark.setMotion(m) }
-  dock.setState(s)
+  dock.setActivity(a)
   dock.setMotion(m)
   document.getElementById('log').textContent =
     `${api.activityTag(a)} · ${m} · ${reducedMatches ? 'reduced' : 'normal'} · dock ${dock.isExpanded() ? 'open' : 'closed'}`

@@ -1,6 +1,6 @@
 {
   "name": "dsh-whale-buddy",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A quietly alive DeepSeek whale for DeepSeek Harness Web: an inline thinking whale and a right-edge Whale Dock.",
   "type": "module",
   "license": "BSD-3-Clause",
@@ -89,6 +89,7 @@
     "@types/react": "18.3.27",
     "jsdom": "^25.0.1",
     "react": "18.3.1",
+    "react-dom": "^18.3.1",
     "tsdown": "^0.22.14",
     "typescript": "^5.9.2"
   }

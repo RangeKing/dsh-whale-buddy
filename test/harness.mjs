@@ -27,7 +27,7 @@ export const BUNDLE = readFileSync(BUNDLE_PATH, 'utf8')
  * @param options.reducedMotion - initial value of the reduced-motion query.
  * @returns the loaded module plus the controls the tests drive.
  */
-export function createHarness({ reducedMotion = false } = {}) {
+export function createHarness({ reducedMotion = false, react: reactRuntime } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
     runScripts: 'outside-only',
     pretendToBeVisual: false,
@@ -111,7 +111,7 @@ export function createHarness({ reducedMotion = false } = {}) {
     load(spec) {
       declaration = spec
       loaded = spec.factory((id) => {
-        if (id === 'react') return react
+        if (id === 'react') return reactRuntime ?? react
         throw new Error(`unexpected external module: ${id}`)
       })
     },

@@ -475,3 +475,18 @@ test('the Dock whale gives its layout box back, so the pill stays 42px', () => {
   assert.equal(mark.style.marginLeft, `${-bleed.x}px`)
   harness.close()
 })
+
+test('a retry during an error pulse breaches on the next turn key', () => {
+  const { harness, dock } = mount()
+  dock.setActivity({ state: 'thinking' }, 's1:1')
+  harness.advance(2200)
+  dock.setActivity({ state: 'error' })
+  assert.equal(dock.view.engine.isLeaping, false)
+  dock.setActivity({ state: 'thinking' }, 's1:2')
+  assert.equal(dock.view.engine.isLeaping, true)
+  harness.advance(2200)
+  dock.setActivity({ state: 'working', task: 'reading' }, 's1:2')
+  assert.equal(dock.view.engine.isLeaping, false, 'a task update replayed the breach')
+  dock.destroy()
+  harness.close()
+})

@@ -45,6 +45,8 @@ export interface WhaleBuddyDict {
   'clock.minutes': string
   'control.inline': string
   'control.classic': string
+  'control.classic.hint': string
+  'classic.word': string
   'control.motion': string
   'motion.full': string
   'motion.subtle': string
@@ -89,6 +91,8 @@ export const en: WhaleBuddyDict = {
   'clock.minutes': '{minutes}m {seconds}s',
   'control.inline': 'Inline whale',
   'control.classic': 'Classic status row',
+  'control.classic.hint': 'Show “Deep diving...” above the input',
+  'classic.word': 'Deep diving...',
   'control.motion': 'Motion',
   'motion.full': 'Full',
   'motion.subtle': 'Subtle',
@@ -130,6 +134,8 @@ export const zh: WhaleBuddyDict = {
   'clock.minutes': '{minutes}分{seconds}秒',
   'control.inline': '对话鲸鱼',
   'control.classic': '经典状态栏',
+  'control.classic.hint': '在输入框上方显示 Deep diving...',
+  'classic.word': 'Deep diving...',
   'control.motion': '动效',
   'motion.full': '完整',
   'motion.subtle': '轻微',

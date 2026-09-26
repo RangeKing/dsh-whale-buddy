@@ -28,11 +28,10 @@
  * The plugin/host split and the `apply` → disposer shape are adapted from
  * dsh-thought-buddy (BSD-3-Clause). See THIRD_PARTY_NOTICES.md.
  */
-import { createElement, useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
+import { createElement, useCallback, useEffect, useMemo, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-trajectory/client'
-import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
@@ -49,7 +48,6 @@ import {
 import { probeStatusShape } from './integration/status-anchor.js'
 import { useSessionActivity } from './integration/session-activity.js'
 import type { StatusRowKind } from './integration/status-anchor.js'
-import { stateOfSessionList, type SessionListFacts } from './integration/thinking-state.js'
 import { formatClassicClock } from './surfaces/classic-status.js'
 import {
   en,
@@ -152,9 +150,10 @@ type DockEntryProps = PropsRuntime<'shell.overlay'> & { store: WhaleStateStore; 
  * @returns the inline whale, or nothing.
  */
 function InlineEntry(props: InlineEntryProps): ReactElement | null {
-  const { store, t, useSessions } = props
-  const { activity, turn } = useSessionActivity(props)
-  const { config } = useWhaleSnapshot(store)
+  const { store, t, sessionId } = props
+  const observed = useSessionActivity(props)
+  const { config, activity, session } = useWhaleSnapshot(store)
+  const turn = `${session.sessionId}:${session.turn}`
   const match = useMemo(() => makeStatusMatcher(t), [t])
   const onFound = useCallback(
     (kind: StatusRowKind) => {
@@ -162,35 +161,22 @@ function InlineEntry(props: InlineEntryProps): ReactElement | null {
     },
     [store],
   )
-  // Only a host whose session list names no current session (0.1.7) leaves
-  // the Dock to this entry; on 0.1.5 the Dock entry publishes for itself, and
-  // an `idle` written here would sit on top of a turn that is still running.
-  const dockFollowsThis = useSessions((list: SessionListState) => !('current' in list))
-  const followed = useRef(dockFollowsThis)
-  followed.current = dockFollowsThis
-
   useEffect(() => {
-    store.setState(activity.state)
-  }, [store, activity])
-  // Leaving the session must not leave the Dock wearing its last state.
-  useEffect(
-    () => () => {
-      if (followed.current) store.setState('idle')
-    },
-    [store],
-  )
+    store.publishSession(sessionId, observed)
+  }, [store, sessionId, observed.activity, observed.running, observed.turn, observed.turnStart])
+  useEffect(() => () => store.clearSession(sessionId), [store, sessionId])
 
   // `error` is allowed through even though DSH removes its status row when the
   // turn stops: the anchor fails quiet with nothing to attach to, and the Dock
   // — which is always there — is where a failed turn actually gets seen.
-  if (!config.inlineEnabled || activity.state === 'idle') return null
+  if (!config.inlineEnabled || session.sessionId !== sessionId || activity.state === 'idle') return null
   return createElement(InlineWhaleHost, {
     // One host per turn: a retry that starts inside an error pulse never
     // passes through idle, and would otherwise skip its breach.
     key: turn,
     store,
     activity,
-    word: statusWordFor(activity, t),
+    word: config.classicStatus ? t('classic.word') : statusWordFor(activity, t),
     match,
     ...(config.classicStatus ? { claim: LEGACY_ONLY } : {}),
     onFound,
@@ -201,16 +187,16 @@ function InlineEntry(props: InlineEntryProps): ReactElement | null {
  * Classic entry: the plugin's own blue running-turn row above the composer,
  * only when asked for, and only on a DSH that no longer draws one itself.
  *
- * It outlives the turn by exactly as long as the error pulse does, which is
- * the one place a failed turn gets a word beside the composer rather than
- * only on the Dock.
+ * Its fixed Deep diving label is only true while a turn is running; the
+ * Dock carries any error pulse after the turn ends.
  * @param props - the slot's owner share plus the shared store.
  * @returns the classic row, or nothing.
  */
 function ClassicEntry(props: ClassicEntryProps): ReactElement | null {
   const { store, t } = props
-  const { activity, running, turn, turnStart } = useSessionActivity(props)
-  const { config, classicRowHost } = useWhaleSnapshot(store)
+  const { config, classicRowHost, activity, session } = useWhaleSnapshot(store)
+  const { running, turnStart } = session
+  const turn = `${session.sessionId}:${session.turn}`
   const formatClock = useCallback((ms: number) => formatClassicClock(ms, t), [t])
   const wanted = config.inlineEnabled && config.classicStatus
   // A page with history already shows which DSH this is; a fresh one waits for
@@ -220,13 +206,13 @@ function ClassicEntry(props: ClassicEntryProps): ReactElement | null {
     if (!wanted || classicRowHost !== 'unknown') return
     if (probeStatusShape(document) === 'process') store.markClassicRowHost('absent')
   }, [store, wanted, classicRowHost, activity.state])
-  if (!wanted || classicRowHost !== 'absent' || activity.state === 'idle') return null
+  if (!wanted || !running || classicRowHost !== 'absent' || session.sessionId !== props.sessionId) return null
   return createElement(ClassicWhaleHost, {
     key: turn,
     store,
     activity,
-    word: statusWordFor(activity, t),
-    fallbackWord: t('status.thinking'),
+    word: t('classic.word'),
+    fallbackWord: t('classic.word'),
     turnStart,
     running,
     formatClock,
@@ -234,22 +220,15 @@ function ClassicEntry(props: ClassicEntryProps): ReactElement | null {
 }
 
 /**
- * Dock entry: always present, and the root-scoped publisher of semantic state
- * (the inline entry only exists while a session does).
+ * Dock entry: always present, following the session-scoped publisher.
  * @param props - the framework's global share plus the store and copy.
  * @returns the dock, or nothing when the user switched it off.
  */
-function DockEntry({ useSessions, store, t }: DockEntryProps): ReactElement | null {
-  // DSH 0.1.5's list names the selected session; 0.1.7's does not ("navigation
-  // belongs to view owners"), and reading it there would pin the Dock to idle
-  // over whatever the session entry publishes. Without `current`, stay quiet.
-  const state = useSessions((list: SessionListState) =>
-    'current' in list ? stateOfSessionList(list as unknown as SessionListFacts) : null,
-  )
+function DockEntry({ store, t }: DockEntryProps): ReactElement | null {
+  // The session-scoped entry publishes the full activity on every supported
+  // DSH version, even when its visual whale is disabled. A root-level running
+  // boolean would overwrite tool details and disagree with that session.
   const { config } = useWhaleSnapshot(store)
-  useEffect(() => {
-    if (state !== null) store.setState(state)
-  }, [store, state])
   if (!config.dockEnabled) return null
   return createElement(WhaleDockHost, { store, t })
 }

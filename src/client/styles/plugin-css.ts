@@ -395,6 +395,12 @@ body[data-ds-dark-theme] {
   color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
   cursor: default;
 }
+.wb-dock__hint {
+  display: block;
+  margin-top: 2px;
+  font: var(--dsw-font-xxs-12, 400 12px/18px system-ui, sans-serif);
+  color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
+}
 .wb-dock__switch {
   appearance: none;
   box-sizing: border-box;
