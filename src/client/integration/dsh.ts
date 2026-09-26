@@ -98,6 +98,7 @@ export function InlineWhaleHost({ store, activity, word, match, claim, onFound }
       onFound: (kind) => live.current.onFound?.(kind),
       size: snapshot.config.size,
       motion: snapshot.config.motion,
+      holdActivity: false,
       activity: live.current.activity,
       word: live.current.word,
     })
@@ -164,6 +165,7 @@ export function ClassicWhaleHost({
       }),
       size: snapshot.config.size,
       motion: snapshot.config.motion,
+      holdActivity: false,
       activity: live.current.activity,
       word: live.current.word,
     })
@@ -216,9 +218,10 @@ export function WhaleDockHost({ store, t }: DockHostProps): ReactElement {
       onDockTop: (top) => store.setConfig('dockTop', top),
     })
     if (dock === null) return
+    dock.setActivity(snapshot.activity, snapshot.session.running ? `${snapshot.session.sessionId}:${snapshot.session.turn}` : undefined)
     handle.current = dock
     const stop = store.subscribe((next) => {
-      dock.setState(next.state)
+      dock.setActivity(next.activity, next.session.running ? `${next.session.sessionId}:${next.session.turn}` : undefined)
       dock.setMotion(next.config.motion)
       dock.setInlineEnabled(next.config.inlineEnabled)
       dock.setClassicStatus(next.config.classicStatus)

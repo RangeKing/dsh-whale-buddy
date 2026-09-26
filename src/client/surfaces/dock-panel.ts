@@ -14,9 +14,9 @@
  * `openInside` is the seam a later release can fill to hand off to a richer
  * companion surface; nothing here depends on one existing.
  */
-import type { Translate } from '../locales.js'
+import { statusWordFor, type Translate } from '../locales.js'
 import { mountWhale, type WhaleView } from '../whale/view.js'
-import type { MotionMode, RandomSource, WhaleSemanticState } from '../whale/types.js'
+import type { MotionMode, RandomSource, WhaleActivity, WhaleSemanticState } from '../whale/types.js'
 
 /** Whale width inside the panel, CSS pixels. Big enough to read the eye. */
 export const PANEL_WHALE_SIZE = 56
@@ -48,6 +48,7 @@ export interface DockPanel {
   /** Receives keyboard focus when the collapsed trigger leaves the layout. */
   readonly initialFocus: HTMLElement
   setState(state: WhaleSemanticState): void
+  setActivity(activity: WhaleActivity): void
   setMotion(motion: MotionMode): void
   /** Play a breach in the panel's larger preview. */
   leap(): void
@@ -127,7 +128,16 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   classicToggle.checked = options.classicStatus ?? false
   classicToggle.disabled = !options.inlineEnabled
   classicLabel.htmlFor = classicToggle.id
-  classicLabel.textContent = t('control.classic')
+  const classicName = doc.createElement('span')
+  classicName.textContent = t('control.classic')
+  classicName.id = 'wb-dock-classic-name'
+  classicToggle.setAttribute('aria-labelledby', classicName.id)
+  const classicHint = doc.createElement('span')
+  classicHint.className = 'wb-dock__hint'
+  classicHint.id = 'wb-dock-classic-hint'
+  classicHint.textContent = t('control.classic.hint')
+  classicToggle.setAttribute('aria-describedby', classicHint.id)
+  classicLabel.append(classicName, classicHint)
   classicToggle.addEventListener('change', () => {
     options.onClassicStatus?.(classicToggle.checked)
   })
@@ -176,25 +186,28 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   })
   view.fitToMark()
 
-  let state = options.state
+  let activity: WhaleActivity = { state: options.state }
   const paintState = (): void => {
     // Every semantic state has a name and a hint, so this reads the state
     // rather than testing for one: the version that asked `=== 'thinking'`
     // silently reported "Idle" for the three states added after it.
-    stateName.textContent = t(`state.${state}` as const)
+    const state = activity.state
+    stateName.textContent = activity.task === undefined ? t(`state.${state}`) : (statusWordFor(activity, t) ?? t(`state.${state}`))
     stateHint.textContent = t(`state.${state}.hint` as const)
   }
   paintState()
+  const setActivity = (next: WhaleActivity): void => {
+    activity = next
+    paintState()
+    view.setActivity(next)
+  }
 
   return {
     element,
     view,
     initialFocus: close,
-    setState(next) {
-      state = next
-      paintState()
-      view.setState(next)
-    },
+    setState(next) { setActivity({ state: next }) },
+    setActivity,
     leap() {
       view.leap()
     },
@@ -213,7 +226,8 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
       title.textContent = t('dock.title')
       close.setAttribute('aria-label', t('dock.close'))
       inlineLabel.textContent = t('control.inline')
-      classicLabel.textContent = t('control.classic')
+      classicName.textContent = t('control.classic')
+      classicHint.textContent = t('control.classic.hint')
       motionLabel.textContent = t('control.motion')
       const options_ = motionSelect.options
       for (let i = 0; i < MOTION_KEYS.length; i++) {

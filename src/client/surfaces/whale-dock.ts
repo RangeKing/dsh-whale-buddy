@@ -19,11 +19,12 @@
  * nothing. Rapid open → close → open therefore always settles on the state the
  * last click asked for.
  */
+import { activityTag } from '../integration/thinking-state.js'
 import { fallbackTranslate, type Translate } from '../locales.js'
 import { DOCK_BUTTON, DOCK_PANEL_WIDTH, DOCK_TRANSITION_MS } from '../styles/plugin-css.js'
 import { mountWhale, type WhaleView } from '../whale/view.js'
 import { REDUCED_MOTION_QUERY } from '../whale/view.js'
-import type { MotionMode, RandomSource, WhaleSemanticState } from '../whale/types.js'
+import type { MotionMode, RandomSource, WhaleActivity, WhaleSemanticState } from '../whale/types.js'
 import { makeDockDraggable, type DockDrag } from './dock-drag.js'
 import { createDockPanel, type DockPanel } from './dock-panel.js'
 
@@ -67,6 +68,7 @@ export interface WhaleDock {
   isExpanded(): boolean
   setExpanded(expanded: boolean): void
   setState(state: WhaleSemanticState): void
+  setActivity(activity: WhaleActivity, turnKey?: string): void
   setMotion(motion: MotionMode): void
   setInlineEnabled(enabled: boolean): void
   setClassicStatus(enabled: boolean): void
@@ -135,6 +137,8 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
   view.fitToMark()
 
   let state = options.state
+  let activity: WhaleActivity = { state }
+  let turnKey: string | undefined
   let motion = options.motion
   let inlineEnabled = options.inlineEnabled
   let classicStatus = options.classicStatus ?? false
@@ -255,6 +259,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
         options.onMotion?.(value)
       },
     })
+    created.setActivity(activity)
     shell.appendChild(created.element)
     return created
   }
@@ -276,7 +281,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       // Build and measure *before* flipping the expanded flag, so the panel is
       // still transparent and the shell still collapsed while we read it.
       if (panel === null) panel = buildPanel()
-      panel.setState(state)
+      panel.setActivity(activity)
       panel.setMotion(motion)
       panel.setInlineEnabled(inlineEnabled)
       panel.setClassicStatus(classicStatus)
@@ -344,24 +349,30 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
   // open; pointerdown rather than click, so a drag that starts outside counts.
   doc.addEventListener('pointerdown', onPointerDown, true)
 
+  const setActivity = (next: WhaleActivity, nextTurn?: string): void => {
+    const running = next.state !== 'idle' && next.state !== 'error'
+    const begins = running && (nextTurn !== undefined ? nextTurn !== turnKey : state === 'idle')
+    if (nextTurn !== undefined) turnKey = nextTurn
+    activity = next
+    state = next.state
+    shell.dataset.state = state
+    shell.dataset.activity = activityTag(next)
+    view.setActivity(next)
+    panel?.setActivity(next)
+    if (begins) {
+      view.leap()
+      panel?.leap()
+    }
+  }
+
   return {
     element,
     button,
     view,
     isExpanded: () => expanded,
     setExpanded,
-    setState(next) {
-      // A turn beginning is the Dock's only cue to breach: unlike the inline
-      // whale, which is mounted by the turn itself, the Dock is always there
-      // and has to notice the edge.
-      const begins = state === 'idle' && next !== 'idle'
-      state = next
-      shell.dataset.state = next
-      view.setState(next)
-      if (begins) view.leap()
-      panel?.setState(next)
-      if (begins) panel?.leap()
-    },
+    setState(next) { setActivity({ state: next }) },
+    setActivity,
     setMotion(next) {
       motion = next
       view.setMotion(next)

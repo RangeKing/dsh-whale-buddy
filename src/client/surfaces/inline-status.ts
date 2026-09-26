@@ -73,6 +73,8 @@ export interface InlineStatusOptions {
   readonly activity: WhaleActivity
   /** The word to show in place of DSH's label, for the starting activity. */
   readonly word?: string | undefined
+  /** False when a shared store already holds activity changes for all surfaces. */
+  readonly holdActivity?: boolean
   readonly random?: RandomSource
 }
 
@@ -182,7 +184,7 @@ export function mountStatusWhale(options: InlineStatusOptions): InlineStatusWhal
       const wait = holdUntil - now()
       // `waiting` is the one state that is about the user rather than the
       // model, so it never queues behind a word the model happened to produce.
-      if (wait <= 0 || next.state === 'waiting' || win === null) {
+      if (options.holdActivity === false || wait <= 0 || next.state === 'waiting' || win === null) {
         clearPending()
         show(next, word)
         return

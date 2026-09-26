@@ -69,7 +69,7 @@ When a conversation turn begins, the inline whale executes an authored breach ou
 - **Both DSH Label Shapes**:
   - **DSH 0.1.7** removed the blue "Deep diving..." row; the running label now lives in the turn's grey fold header ("深度求索中，用时12秒"). The whale goes into that header and wears its grey, and only the leading words are swapped (`读取文件中，用时12秒`), so DSH's own clock keeps ticking.
   - **DSH 0.1.5** still draws the blue row, and the whale goes into it as before.
-- **Classic "Deep diving" option** (Dock panel → *Classic "Deep diving"*, off by default): on DSH 0.1.7, draws the old blue row back — same type, same gradient sweep, clock after 15 s — directly above the composer with the whale in it, and leaves DSH's grey header untouched. Unlike the default, this row takes space: it appears and leaves once per turn, as DSH 0.1.5's own row did. On DSH 0.1.5 it does nothing, because the row is already there.
+- **Classic "Deep diving" option** (Dock panel → *Classic "Deep diving"*, off by default): on DSH 0.1.7, draws the old blue row back — same type, same gradient sweep, clock after 15 s — directly above the composer with the whale in it, and leaves DSH's grey header untouched. Unlike the default, this row takes space: it appears and leaves once per turn, as DSH 0.1.5's own row did. The label stays **Deep diving...** in both languages while the whale follows the current task. On DSH 0.1.5, the same fixed wording is applied to the existing row without adding another.
 
 ### 2. Whale Dock & Companion Panel
 
@@ -140,7 +140,7 @@ npm install dsh-whale-buddy@0.2.1
 
 ## ⚙️ Configuration
 
-The Dock shows the current state and three settings: inline whale, classic status row, and motion. It follows DSH’s light and dark themes. Turning off the inline whale disables the classic-row control while preserving its preference.
+The Dock shows the current state and three settings: inline whale, classic status row, and motion. It follows DSH’s light and dark themes. The Dock, its expanded preview, and the session whale share the same task and state-change timing. Turning off the inline whale disables the classic-row control while preserving its preference.
 
 Additional preferences are available through `localStorage`:
 
