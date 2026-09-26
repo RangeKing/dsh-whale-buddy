@@ -25,7 +25,7 @@ export const STYLE_TAG_ID = 'dsh-whale-buddy/styles.css'
 export const DOCK_BUTTON = 42
 
 /** Expanded panel width, CSS pixels. */
-export const DOCK_PANEL_WIDTH = 232
+export const DOCK_PANEL_WIDTH = 272
 
 /** Shell transition, milliseconds. Long enough to read, short enough to spam. */
 export const DOCK_TRANSITION_MS = 260
@@ -184,8 +184,9 @@ body[data-ds-dark-theme] {
   pointer-events: none;
   padding-right: max(0px, env(safe-area-inset-right, 0px));
   z-index: 1;
+  transition: top ${DOCK_TRANSITION_MS}ms cubic-bezier(0.22, 0.78, 0.3, 1);
 }
-.wb-dock[data-dragging] { cursor: grabbing; }
+.wb-dock[data-dragging] { cursor: grabbing; transition: none; }
 .wb-dock[data-dragging] .wb-dock__shell { transition: none; }
 .wb-dock__button { touch-action: none; }
 /* A right panel taking the whole frame owns the edge; stand down. */
@@ -201,7 +202,7 @@ body[data-ds-dark-theme] {
   height: ${DOCK_BUTTON}px;
   border: 1px solid var(--dsw-alias-border-l4, var(--wb-border-strong));
   border-right: none;
-  border-radius: 12px 0 0 12px;
+  border-radius: 16px 0 0 16px;
   background: var(--dsw-alias-button-floating-fill, var(--dsw-alias-bg-layer-2, var(--wb-bg)));
   color: var(--dsw-alias-label-secondary, var(--wb-text-2));
   box-shadow: 0 1px 10px var(--wb-shadow);
@@ -245,9 +246,11 @@ body[data-ds-dark-theme] {
 }
 .wb-dock__shell[data-expanded='true'] {
   width: ${DOCK_PANEL_WIDTH}px;
-  box-shadow: 0 6px 26px var(--wb-shadow-strong);
+  background: var(--dsw-specific-menu, var(--dsw-alias-bg-layer-2, var(--wb-bg-plain)));
+  backdrop-filter: var(--dsw-menu-backdrop-filter, none);
+  box-shadow: var(--dsw-elevation-prominent, 0 6px 26px var(--wb-shadow-strong));
 }
-.wb-dock__shell:hover { box-shadow: 0 3px 16px var(--wb-shadow-strong); }
+.wb-dock__shell[data-expanded='false']:hover { box-shadow: 0 3px 16px var(--wb-shadow-strong); }
 
 /*
  * Expanded, the panel owns the whole shell: the 24 px whale in the corner is
@@ -274,7 +277,7 @@ body[data-ds-dark-theme] {
      DSH's own near-black brand mark; the state cue is carried by opacity. */
   color: var(--dsw-alias-label-primary, var(--wb-text-1));
   cursor: pointer;
-  border-radius: 12px 0 0 12px;
+  border-radius: 16px 0 0 16px;
   transition: transform 140ms ease-out, background-color 140ms ease-out;
 }
 .wb-dock__button:hover { background: var(--dsw-alias-button-ghost-active-fill, var(--wb-fill)); }
@@ -300,8 +303,9 @@ body[data-ds-dark-theme] {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 14px 14px;
+  gap: 12px;
+  padding: 12px 16px 10px;
+  font: var(--dsw-font-xs-13, 400 13px/20px system-ui, sans-serif);
   opacity: 1;
   transition: opacity 160ms ease-out ${Math.round(DOCK_TRANSITION_MS * 0.35)}ms;
 }
@@ -316,83 +320,137 @@ body[data-ds-dark-theme] {
   justify-content: space-between;
   gap: 8px;
 }
+/* Uses the host's menu, field and brand tokens. Native form elements keep
+ * keyboard and checked-state behavior without a second component runtime. */
 .wb-dock__title {
-  flex: 1 1 auto;
   min-width: 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font: var(--dsw-font-s-strong-14, 500 14px/22px system-ui, sans-serif);
   color: var(--dsw-alias-label-primary, var(--wb-text-1));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .wb-dock__close {
   appearance: none;
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: none;
-  border-radius: 6px;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
-  font-size: 15px;
-  line-height: 1;
+  font: 20px/1 system-ui, sans-serif;
   cursor: pointer;
 }
-.wb-dock__close:hover { background: var(--dsw-alias-button-ghost-active-fill, var(--wb-fill)); }
-.wb-dock__close:focus-visible {
-  outline: 2px solid var(--wb-focus);
-  outline-offset: 1px;
+.wb-dock__close:hover {
+  background: var(--dsw-alias-interactive-bg-hover, var(--wb-fill));
+  color: var(--dsw-alias-label-primary, var(--wb-text-1));
 }
-
+.wb-dock__close:focus-visible,
+.wb-dock__switch:focus-visible,
+.wb-dock__select select:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, var(--wb-focus));
+  outline-offset: 2px;
+}
 .wb-dock__stage {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   min-width: 0;
+  min-height: 68px;
+  padding: 0 4px;
   color: var(--dsw-alias-label-primary, var(--wb-text-1));
 }
 .wb-dock__preview { flex: none; display: flex; }
-/* The hint wraps rather than being clipped: translations are not all short,
-   and the shell hides its overflow so a nowrap line would simply vanish. */
 .wb-dock__state {
-  flex: 1 1 auto;
   min-width: 0;
-  font-size: 11px;
-  line-height: 1.35;
+  font: var(--dsw-font-xxs-12, 400 12px/18px system-ui, sans-serif);
   color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
   overflow-wrap: anywhere;
 }
 .wb-dock__state strong {
   display: block;
-  font-size: 12px;
-  font-weight: 600;
+  margin-bottom: 2px;
+  font: var(--dsw-font-xs-strong-13, 500 13px/20px system-ui, sans-serif);
   color: var(--dsw-alias-label-primary, var(--wb-text-1));
 }
-
-.wb-dock__controls { display: flex; flex-direction: column; gap: 6px; }
+.wb-dock__controls {
+  display: flex;
+  flex-direction: column;
+  border-top: 0.5px solid var(--dsw-alias-border-l2, var(--wb-border));
+  padding-top: 4px;
+}
 .wb-dock__row {
-  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--dsw-alias-label-secondary, var(--wb-text-2));
+  gap: 12px;
+  min-height: 40px;
+  color: var(--dsw-alias-label-primary, var(--wb-text-1));
 }
-.wb-dock__row label { cursor: pointer; }
-.wb-dock__row select,
-.wb-dock__row input[type='checkbox'] { cursor: pointer; }
-.wb-dock__row select {
+.wb-dock__row label {
+  flex: 1;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.wb-dock__row:has(input:disabled) label {
+  color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
+  cursor: default;
+}
+.wb-dock__switch {
+  appearance: none;
+  box-sizing: border-box;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 99px;
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3, var(--wb-border));
+  cursor: pointer;
+}
+.wb-dock__switch::before {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-label-primary-foreground, #fff);
+  transition: transform 120ms ease;
+}
+.wb-dock__switch:checked { background: var(--dsw-alias-brand-primary, var(--wb-focus)); }
+.wb-dock__switch:checked::before { transform: translateX(16px); }
+.wb-dock__switch:disabled { opacity: 0.5; cursor: default; }
+.wb-dock__select { position: relative; flex: none; }
+.wb-dock__select::after {
+  content: '';
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  pointer-events: none;
+  color: var(--dsw-alias-label-tertiary, var(--wb-text-3));
+}
+.wb-dock__select select {
+  appearance: none;
+  box-sizing: border-box;
+  min-width: 86px;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l4, var(--wb-border));
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-base, var(--wb-bg)));
+  color: var(--dsw-alias-label-primary, var(--wb-text-1));
   font: inherit;
-  font-size: 11px;
-  padding: 2px 4px;
-  border-radius: 6px;
-  border: 0.5px solid var(--dsw-alias-border-l3, var(--wb-border));
-  background: var(--dsw-alias-bg-base, var(--wb-bg-plain));
-  color: inherit;
+  cursor: pointer;
+}
+.wb-dock__select select:hover {
+  background: var(--dsw-alias-interactive-bg-hover, var(--wb-fill-solid));
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-classic__word {
@@ -400,10 +458,12 @@ body[data-ds-dark-theme] {
     background-size: 100% 100%;
     animation: none;
   }
+  .wb-dock,
   .wb-dock__shell,
   .wb-dock__button,
   .wb-dock__mark,
-  .wb-dock__panel {
+  .wb-dock__panel,
+  .wb-dock__switch::before {
     transition: none !important;
   }
   .wb-dock__button:hover .wb-dock__mark,

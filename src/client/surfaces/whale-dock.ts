@@ -281,6 +281,10 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       panel.setInlineEnabled(inlineEnabled)
       panel.setClassicStatus(classicStatus)
       const target = measureExpanded()
+      // The same fractional edge position must fit the expanded surface too.
+      // Keeping the 42 px travel track here strands the settings below the
+      // viewport when the Dock has been dragged near the bottom.
+      element.style.setProperty('--wb-dock-size', `${target}px`)
       const hadFocus = doc.activeElement === button
       shell.dataset.expanded = 'true'
       animateShell(true, ticket, target)
@@ -291,6 +295,7 @@ export function mountWhaleDock(options: WhaleDockOptions): WhaleDock | null {
       return
     }
 
+    element.style.setProperty('--wb-dock-size', `${DOCK_BUTTON}px`)
     animateShell(false, ticket, DOCK_BUTTON)
     options.onToggle?.(false)
     const finish = (): void => {

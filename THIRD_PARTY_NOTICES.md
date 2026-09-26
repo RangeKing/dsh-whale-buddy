@@ -37,6 +37,8 @@ derivative). It is written to be true rather than generous in either direction.
 | Slot API, session facts, `shell.overlay` layer | deepseek-harness (`@deepseek-ai/dsh-client-*`) | MIT | consumed as a dependency, not copied | no |
 | Classic status row look — 0.1.5 running-turn label type, gradient sweep, late clock and its templates (`src/client/surfaces/classic-status.ts`, `.wb-classic*` in `src/client/styles/plugin-css.ts`) | deepseek-harness `@deepseek-ai/dsh-client-ui-chat@0.1.5-rc.2` (`ChatView` `turnStatus` style, `formatRunDuration`) | MIT | visual style re-created from the published values; DSH's design tokens referenced by name; no source copied | acknowledgement |
 
+The Dock settings appearance references the published `@deepseek-ai/dsh-client-ui-primitives@0.1.7-rc.1` Switch, settings fields and Menu, and consumes DSH theme tokens by name. The controls use native HTML inputs with plugin-owned styling; no additional DSH component runtime is bundled.
+
 ---
 
 ## dsh-thought-buddy — BSD-3-Clause (adapted)

@@ -45,11 +45,7 @@ export interface DockPanelOptions {
 export interface DockPanel {
   readonly element: HTMLElement
   readonly view: WhaleView
-  /**
-   * The control a caller should focus if it ever needs to move focus into the
-   * panel. The Dock deliberately does not — it leaves focus on its trigger —
-   * but a future surface that opens the panel without a trigger will need it.
-   */
+  /** Receives keyboard focus when the collapsed trigger leaves the layout. */
   readonly initialFocus: HTMLElement
   setState(state: WhaleSemanticState): void
   setMotion(motion: MotionMode): void
@@ -107,11 +103,14 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   const inlineLabel = doc.createElement('label')
   const inlineToggle = doc.createElement('input')
   inlineToggle.type = 'checkbox'
+  inlineToggle.className = 'wb-dock__switch'
+  inlineToggle.setAttribute('role', 'switch')
   inlineToggle.id = 'wb-dock-inline'
   inlineToggle.checked = options.inlineEnabled
   inlineLabel.htmlFor = inlineToggle.id
   inlineLabel.textContent = t('control.inline')
   inlineToggle.addEventListener('change', () => {
+    classicToggle.disabled = !inlineToggle.checked
     options.onInlineEnabled(inlineToggle.checked)
   })
   inlineRow.appendChild(inlineLabel)
@@ -122,8 +121,11 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   const classicLabel = doc.createElement('label')
   const classicToggle = doc.createElement('input')
   classicToggle.type = 'checkbox'
+  classicToggle.className = 'wb-dock__switch'
+  classicToggle.setAttribute('role', 'switch')
   classicToggle.id = 'wb-dock-classic'
   classicToggle.checked = options.classicStatus ?? false
+  classicToggle.disabled = !options.inlineEnabled
   classicLabel.htmlFor = classicToggle.id
   classicLabel.textContent = t('control.classic')
   classicToggle.addEventListener('change', () => {
@@ -137,6 +139,9 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
   const motionLabel = doc.createElement('label')
   const motionSelect = doc.createElement('select')
   motionSelect.id = 'wb-dock-motion'
+  const motionField = doc.createElement('span')
+  motionField.className = 'wb-dock__select'
+  motionField.appendChild(motionSelect)
   motionLabel.htmlFor = motionSelect.id
   motionLabel.textContent = t('control.motion')
   const MOTION_KEYS = ['full', 'subtle', 'static'] as const
@@ -152,7 +157,7 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
     if (value === 'full' || value === 'subtle' || value === 'static') options.onMotion(value)
   })
   motionRow.appendChild(motionLabel)
-  motionRow.appendChild(motionSelect)
+  motionRow.appendChild(motionField)
 
   controls.appendChild(inlineRow)
   controls.appendChild(classicRow)
@@ -199,6 +204,7 @@ export function createDockPanel(options: DockPanelOptions): DockPanel {
     },
     setInlineEnabled(enabled) {
       inlineToggle.checked = enabled
+      classicToggle.disabled = !enabled
     },
     setClassicStatus(enabled) {
       classicToggle.checked = enabled

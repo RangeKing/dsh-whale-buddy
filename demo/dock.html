@@ -3,7 +3,7 @@
   body { margin: 0; font: 12px/1.5 -apple-system, "PingFang SC", sans-serif; background: #f2f4f7; color: #0f1115 }
   body[data-ds-dark-theme] { background: #151517; color: #f9fafb }
   .pair { display: flex; gap: 18px; padding: 18px; flex-wrap: wrap }
-  .frame { position: relative; width: 300px; height: 220px; border-radius: 10px; overflow: hidden;
+  .frame { position: relative; width: 320px; height: 360px; border-radius: 10px; overflow: hidden;
            border: 1px dashed rgba(127,140,155,.5);
            background: repeating-linear-gradient(45deg, transparent 0 9px, rgba(127,140,155,.07) 9px 18px) }
   .overlay { position: absolute; inset: 0; z-index: 20; pointer-events: none }
@@ -15,16 +15,23 @@
 <script src="../lib/client.js"></script>
 <script>
 const TOKENS = {
-  light: {'--dsw-alias-bg-base':'#fff','--dsw-alias-bg-layer-2':'#fff','--dsw-alias-button-floating-fill':'#fff',
+  light: {'--dsw-alias-brand-primary':'#0f1115','--dsw-alias-label-primary-foreground':'#fff',
+    '--dsw-alias-bg-layer-3':'#fff','--dsw-alias-interactive-bg-hover':'#2631480f',
+    '--dsw-alias-border-l2':'#0000001a','--dsw-alias-border-l4':'#00000029',
+    '--dsw-alias-bg-base':'#fff','--dsw-alias-bg-layer-2':'#fff','--dsw-alias-button-floating-fill':'#fff',
     '--dsw-alias-border-l3':'#0000001f','--dsw-alias-button-ghost-active-fill':'#ebeef2',
     '--dsw-alias-label-primary':'#0f1115','--dsw-alias-label-secondary':'#61666b',
     '--dsw-alias-label-tertiary':'#81858c','--dsw-alias-label-caption':'#adb2b8'},
-  dark: {'--dsw-alias-bg-base':'#151517','--dsw-alias-bg-layer-2':'#2c2c2e','--dsw-alias-button-floating-fill':'#2c2c2e',
+  dark: {'--dsw-alias-brand-primary':'#f9fafb','--dsw-alias-label-primary-foreground':'#0f1115',
+    '--dsw-alias-bg-layer-3':'#2c2c2e','--dsw-alias-interactive-bg-hover':'#ffffff14',
+    '--dsw-alias-border-l2':'#ffffff1f','--dsw-alias-border-l4':'#ffffff33',
+    '--dsw-alias-bg-base':'#151517','--dsw-alias-bg-layer-2':'#2c2c2e','--dsw-alias-button-floating-fill':'#2c2c2e',
     '--dsw-alias-border-l3':'#ffffff29','--dsw-alias-button-ghost-active-fill':'#43454a',
     '--dsw-alias-label-primary':'#f9fafb','--dsw-alias-label-secondary':'#cfd3d6',
     '--dsw-alias-label-tertiary':'#adb2b8','--dsw-alias-label-caption':'#81858c'}
 }
-const theme = new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'
+const params = new URLSearchParams(location.search)
+const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
 if (theme === 'dark') document.body.setAttribute('data-ds-dark-theme', '')
 for (const [k, v] of Object.entries(TOKENS[theme])) document.body.style.setProperty(k, v)
 
@@ -39,8 +46,9 @@ cases.forEach(([label, state, open], i) => {
   const cap = document.createElement('figcaption'); cap.textContent = label; fig.appendChild(cap)
   document.getElementById('pair').appendChild(fig)
   const dock = window.api.mountWhaleDock({
-    host: overlay, state, motion: 'full', inlineEnabled: true,
-    t: window.api.fallbackTranslate('en'), random: window.api.seededRandom(300 + i),
+    host: overlay, state, motion: 'full', inlineEnabled: true, dockTop: Number(params.get('top') ?? 0.5),
+    onMotion: (value) => dock.setMotion(value),
+    t: window.api.fallbackTranslate(params.get('locale') || 'zh'), random: window.api.seededRandom(300 + i),
   })
   if (open) dock.setExpanded(true)
 })

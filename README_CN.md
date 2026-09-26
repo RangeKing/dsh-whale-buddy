@@ -113,7 +113,7 @@
 // ~/.dsh/profiles/web/package.json
 {
   "dependencies": {
-    "dsh-whale-buddy": "link:/path/to/dsh-whale-buddy"
+    "dsh-whale-buddy": "^0.2.1"
   },
   "dsh": {
     "profile": {
@@ -127,11 +127,11 @@
 }
 ```
 
-### 2. 编译打包
+### 2. 安装插件
 
 ```bash
-npm ci
-npm run build
+cd ~/.dsh/profiles/web
+npm install dsh-whale-buddy@0.2.1
 ```
 
 **环境要求：** DeepSeek Harness `0.1.5-rc.2` 至 `0.1.7-rc.1`（需具备 `shell.overlay` 与 `conversation.input.overlay` 插槽；经典状态行另需 `conversation.input.dock`）。
@@ -140,7 +140,9 @@ npm run build
 
 ## ⚙️ 个性化配置
 
-可通过 Whale Dock 伴随面板直观调节，或直接通过 `localStorage` 配置：
+侧边面板保留实时状态和三个设置：对话鲸鱼、经典状态栏、动效。面板跟随 DSH 的深浅主题；关闭对话鲸鱼时，经典状态栏选项暂不可用，原有选择会保留。
+
+其他配置可通过 `localStorage` 调整：
 
 | `localStorage` 键 | 候选值 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |

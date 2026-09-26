@@ -202,7 +202,7 @@ test('the Dock panel carries the classic toggle and reports it', () => {
   const toggle = dock.element.querySelector('#wb-dock-classic')
   assert.ok(toggle, 'no classic toggle in the panel')
   assert.equal(toggle.checked, false)
-  assert.match(dock.element.querySelector(`label[for="${toggle.id}"]`).textContent, /深度求索中/)
+  assert.equal(dock.element.querySelector(`label[for="${toggle.id}"]`).textContent, harness.client.zh['control.classic'])
   toggle.checked = true
   toggle.dispatchEvent(new harness.window.Event('change'))
   assert.deepEqual(changes, [true])

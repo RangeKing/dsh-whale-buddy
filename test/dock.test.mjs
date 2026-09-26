@@ -224,6 +224,29 @@ test('the shell carries the semantic state so the collapsed whale can react', ()
   harness.close()
 })
 
+test('classic status is unavailable without inline whale and keeps its preference', () => {
+  const { harness, dock } = mount({ dock: { classicStatus: true } })
+  dock.setExpanded(true)
+  const inline = dock.element.querySelector('#wb-dock-inline')
+  const classic = dock.element.querySelector('#wb-dock-classic')
+  assert.equal(inline.getAttribute('role'), 'switch')
+  assert.equal(classic.getAttribute('role'), 'switch')
+  inline.click()
+  assert.equal(classic.disabled, true)
+  classic.click()
+  assert.equal(classic.checked, true, 'a disabled click changed the saved choice')
+  dock.setInlineEnabled(true)
+  assert.equal(classic.disabled, false)
+  assert.equal(classic.checked, true)
+  dock.setInlineEnabled(false)
+  dock.setExpanded(false)
+  harness.advance(500)
+  dock.setExpanded(true)
+  assert.equal(dock.element.querySelector('#wb-dock-classic').disabled, true)
+  dock.destroy()
+  harness.close()
+})
+
 test('the panel reflects semantic state in words', () => {
   const { harness, dock } = mount({ state: 'idle' })
   dock.button.click()
@@ -427,11 +450,15 @@ test('the collapsed shell stops clipping so the breach is not sliced', () => {
   })
   assert.equal(shell.dataset.transitioning, undefined, 'the shell starts mid-transition')
   dock.setExpanded(true)
+  assert.equal(dock.element.style.getPropertyValue('--wb-dock-size'), '210px',
+    'the open panel still uses the collapsed travel track')
   assert.equal(shell.dataset.transitioning, '', 'the clip was not restored for the open')
   harness.advance(harness.client.DOCK_TRANSITION_MS + 80)
   // A stuck flag is the failure that matters: it would leave the clip on
   // forever and silently slice every breach from then on.
   assert.equal(shell.dataset.transitioning, undefined, 'the clip was never released again')
+  dock.setExpanded(false)
+  assert.equal(dock.element.style.getPropertyValue('--wb-dock-size'), '42px')
   harness.close()
 })
 

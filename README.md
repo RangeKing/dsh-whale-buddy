@@ -113,7 +113,7 @@ Add the plugin to your DSH web profile configuration:
 // ~/.dsh/profiles/web/package.json
 {
   "dependencies": {
-    "dsh-whale-buddy": "link:/path/to/dsh-whale-buddy"
+    "dsh-whale-buddy": "^0.2.1"
   },
   "dsh": {
     "profile": {
@@ -127,11 +127,11 @@ Add the plugin to your DSH web profile configuration:
 }
 ```
 
-### 2. Build the Plugin
+### 2. Install the Package
 
 ```bash
-npm ci
-npm run build
+cd ~/.dsh/profiles/web
+npm install dsh-whale-buddy@0.2.1
 ```
 
 **Environment Requirement:** DeepSeek Harness `0.1.5-rc.2` through `0.1.7-rc.1` (requires the `shell.overlay` and `conversation.input.overlay` extension slots; the classic row also uses `conversation.input.dock`).
@@ -140,7 +140,9 @@ npm run build
 
 ## ⚙️ Configuration
 
-Configure preferences directly from the Whale Dock panel, or set them via `localStorage`:
+The Dock shows the current state and three settings: inline whale, classic status row, and motion. It follows DSH’s light and dark themes. Turning off the inline whale disables the classic-row control while preserving its preference.
+
+Additional preferences are available through `localStorage`:
 
 | `localStorage` Key | Accepted Values | Default | Description |
 | :--- | :--- | :--- | :--- |
